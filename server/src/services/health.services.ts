@@ -4,7 +4,7 @@ import { ErrorWithStatus } from '~/models/Errors'
 import Disease from '~/models/schemas/Disease.schema'
 import databaseService from './database.services'
 import { WEBMED_MESSAGES } from '~/constant/messages'
-import HTTP_STATUS from '~/constant/httpStatus'
+import HTTP_STATUS from '../constant/httpStatus'
 
 class HealthService {
   async getDiseases(page: number = 1, limit: number = 10, search: string = '') {

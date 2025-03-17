@@ -1,9 +1,9 @@
 // server/src/controllers/health.controllers.ts
 import { Request, Response } from 'express'
 import { ParamsDictionary } from 'express-serve-static-core'
-import healthService from '~/services/health.services'
-import { SearchDiseaseReqBody } from '~/models/request/Disease.request'
-import { WEBMED_MESSAGES } from '~/constant/messages'
+import healthService from '../services/health.services'
+import { SearchDiseaseReqBody } from '../models/request/Disease.request'
+import { WEBMED_MESSAGES } from '../constant/messages'
 
 export const getDiseasesController = async (req: Request, res: Response) => {
   const { page, limit, search } = req.query
