@@ -1,4 +1,3 @@
-// client/src/pages/MedicineDetailPage.tsx
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ShoppingCart, Plus, Minus, AlertCircle, CheckCircle2, Info } from 'lucide-react'
@@ -195,7 +194,7 @@ const MedicineDetailPage = () => {
                   <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
                     <div>
                       <h3 className='font-semibold'>Category</h3>
-                      <p className='text-muted-foreground'>{medicine.category || 'General'}</p>
+                      <p className='text-muted-foreground'>General</p>
                     </div>
                     <div>
                       <h3 className='font-semibold'>Form</h3>
@@ -224,7 +223,7 @@ const MedicineDetailPage = () => {
                     Based on its properties and common medical uses, this medication may be used for:
                   </p>
                   <ul className='list-inside list-disc space-y-2'>
-                    <li>Relief of {medicine.category.toLowerCase()} symptoms</li>
+                    <li>Relief of symptoms</li>
                     <li>Management of associated conditions</li>
                     <li>Short or long-term treatment as prescribed</li>
                   </ul>
@@ -238,9 +237,7 @@ const MedicineDetailPage = () => {
                   <CardTitle>Recommended Dosage</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className='mb-4 text-muted-foreground'>
-                    {medicine.usage || "Refer to doctor's instructions for proper usage."}
-                  </p>
+                  <p className='mb-4 text-muted-foreground'>Refer to doctor's instructions for proper usage.</p>
 
                   <h3 className='mb-2 font-semibold'>Standard Adult Dosage:</h3>
                   <p className='mb-4 text-muted-foreground'>
@@ -278,7 +275,7 @@ const MedicineDetailPage = () => {
                 </CardHeader>
                 <CardContent>
                   <p className='text-muted-foreground'>
-                    {medicine.storage || 'Store below 25°C in a dry place. Keep out of reach of children.'}
+                    Store below 25°C in a dry place. Keep out of reach of children.
                   </p>
                 </CardContent>
               </Card>
@@ -342,9 +339,9 @@ const MedicineDetailPage = () => {
                   <CardTitle>Warnings and Precautions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {medicine.warnings && medicine.warnings.length > 0 ? (
+                  {medicine.side_effects && medicine.side_effects.length > 0 ? (
                     <ul className='list-inside list-disc space-y-2'>
-                      {medicine.warnings.map((warning, index) => (
+                      {medicine.side_effects.map((warning, index) => (
                         <li key={index}>{warning}</li>
                       ))}
                     </ul>

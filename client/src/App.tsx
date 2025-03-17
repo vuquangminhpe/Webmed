@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import './App.css'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import MainLayout from '@/components/layout/MainLayout'
 import HomePage from '@/pages/HomePage'
@@ -23,16 +23,10 @@ import NotFoundPage from './pages/NotFoundPage'
 import SymptomCheckerPage from './pages/SymptomCheckerPage'
 import DoctorsPage from './pages/DoctorsPage'
 import DoctorDetailPage from './pages/DoctorsPage'
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 1000 * 60 * 5
-    }
-  }
-})
+import HealthCalculatorPage from './pages/HealthCalculatorPage'
+import InsuranceGuidePage from './pages/InsuranceGuidePage'
+import CheckoutPage from './pages/CheckoutPage'
+import PaymentSuccessPage from './pages/PaymentSuccessPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = Boolean(getAccessTokenFromLS())
@@ -62,7 +56,7 @@ function App() {
   }, [])
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       <Router>
         <MainLayout>
           <Routes>
@@ -139,7 +133,7 @@ function App() {
         </MainLayout>
       </Router>
       <Toaster />
-    </QueryClientProvider>
+    </>
   )
 }
 
