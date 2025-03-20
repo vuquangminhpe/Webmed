@@ -1,4 +1,4 @@
-// client/src/apis/doctors.api.ts
+// Updated doctors.api.ts
 import { SuccessResponse } from '@/types/Utils.type'
 import http from '@/utils/http'
 
@@ -52,15 +52,18 @@ interface AppointmentListResponse {
 }
 
 interface DoctorSearchParams {
-  page: number
-  limit: number
+  page?: number
+  limit?: number
   name?: string
   specialization?: string
   location?: string
+  availability?: string
+  sort?: string
 }
 
 const doctorApi = {
-  getDoctors: (params: DoctorSearchParams) => http.get<SuccessResponse<DoctorListResponse>>('/doctors', { params }),
+  getDoctors: (params: DoctorSearchParams = {}) =>
+    http.get<SuccessResponse<DoctorListResponse>>('/doctors', { params }),
 
   getDoctorById: (id: string) => http.get<SuccessResponse<Doctor>>(`/doctors/${id}`),
 
@@ -77,7 +80,9 @@ const doctorApi = {
   cancelAppointment: (id: string) => http.post<SuccessResponse<{ message: string }>>(`/appointments/${id}/cancel`),
 
   getDoctorAvailability: (doctorId: string, date: string) =>
-    http.get<SuccessResponse<{ available_times: string[] }>>(`/doctors/${doctorId}/availability`, { params: { date } }),
+    http.get<SuccessResponse<{ available_times: string[] }>>(`/doctors/${doctorId}/availability`, {
+      params: { date }
+    }),
 
   getDoctorReviews: (doctorId: string, page: number = 1, limit: number = 10) =>
     http.get<
@@ -108,7 +113,22 @@ const doctorApi = {
       rating: number
       comment: string
     }
-  ) => http.post<SuccessResponse<{ message: string }>>(`/doctors/${doctorId}/reviews`, data)
+  ) => http.post<SuccessResponse<{ message: string }>>(`/doctors/${doctorId}/reviews`, data),
+
+  // New methods
+  getSpecializations: () => http.get<SuccessResponse<string[]>>('/doctors/specializations'),
+
+  getLocations: () => http.get<SuccessResponse<string[]>>('/doctors/locations'),
+
+  searchDoctorsBySymptom: (symptom: string) =>
+    http.get<SuccessResponse<Doctor[]>>('/doctors/search/symptom', {
+      params: { symptom }
+    }),
+
+  getTopRatedDoctors: (limit: number = 5) =>
+    http.get<SuccessResponse<Doctor[]>>('/doctors/top-rated', {
+      params: { limit }
+    })
 }
 
 export default doctorApi

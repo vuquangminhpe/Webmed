@@ -1,5 +1,8 @@
-import { useState } from 'react'
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query'
 import { Pill, Search, Filter, ArrowRight, ShoppingCart, AlertCircle, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,21 +19,150 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useMedicines } from '@/hooks/useMedicine'
 import path from '@/constants/path'
+import { toast } from 'sonner'
+import medicineApi from '@/apis/medicine.api'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/Components/ui/label'
+
+interface FilterState {
+  categories: string[]
+  priceRange: string[]
+  prescription: string[]
+}
 
 const MedicinesPage = () => {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [sortOption, setSortOption] = useState('name')
+  const [filters, setFilters] = useState<FilterState>({
+    categories: [],
+    priceRange: [],
+    prescription: []
+  })
 
-  const { data, isLoading, error } = useMedicines(currentPage, 9, searchQuery)
+  // Generate query parameters based on current filters
+  const getQueryParams = (): any => {
+    const queryParams: Record<string, any> = {
+      page: currentPage,
+      limit: 9,
+      search: searchQuery
+    }
+
+    if (sortOption) {
+      queryParams.sort = sortOption
+    }
+
+    if (filters.categories.length > 0) {
+      queryParams.category = filters.categories.join(',')
+    }
+
+    if (filters.priceRange.length > 0) {
+      // Example: transform 'price-0-10' to min=0&max=10
+      const priceRanges = filters.priceRange.map((range) => {
+        const [_, min, max] = range.split('-')
+        return { min, max }
+      })
+
+      const minPrice = Math.min(...priceRanges.map((r) => Number(r.min)))
+      const maxPrice = Math.max(...priceRanges.map((r) => Number(r.max === '100+' ? '1000' : r.max)))
+
+      queryParams.minPrice = minPrice
+      queryParams.maxPrice = maxPrice === 1000 ? undefined : maxPrice
+    }
+
+    if (filters.prescription.length > 0) {
+      queryParams.requiresPrescription = filters.prescription.includes('prescription-required')
+    }
+
+    return queryParams
+  }
+
+  // Fetch medicines with the current filters
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['medicines', currentPage, searchQuery, sortOption, filters],
+    queryFn: () => {
+      const { page, limit, search, sort, minPrice, maxPrice, category, requiresPrescription } = getQueryParams()
+      return medicineApi.getMedicines(page, limit, { search, sort, minPrice, maxPrice, category, requiresPrescription })
+    },
+    placeholderData: keepPreviousData
+  })
+
+  // Add to cart mutation
+  const addToCartMutation = useMutation({
+    mutationFn: (medicineId: string) => {
+      // This would be your actual add to cart API call
+      // For now we'll just simulate it with a promise
+      return Promise.resolve({ medicineId, quantity: 1 })
+    },
+    onSuccess: (_, medicineId) => {
+      const medicine = data?.data?.result.medicines.find((m) => m._id === medicineId)
+      toast.success(`Added ${medicine?.name || 'medicine'} to cart`)
+    },
+    onError: () => {
+      toast.error('Failed to add item to cart')
+    }
+  })
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
+    refetch()
+  }
+
+  const toggleCategoryFilter = (categoryId: string) => {
+    setFilters((prev) => {
+      const categories = prev.categories.includes(categoryId)
+        ? prev.categories.filter((id) => id !== categoryId)
+        : [...prev.categories, categoryId]
+
+      return { ...prev, categories }
+    })
+  }
+
+  const togglePriceFilter = (priceRange: string) => {
+    setFilters((prev) => {
+      const priceRanges = prev.priceRange.includes(priceRange)
+        ? prev.priceRange.filter((range) => range !== priceRange)
+        : [...prev.priceRange, priceRange]
+
+      return { ...prev, priceRange: priceRanges }
+    })
+  }
+
+  const togglePrescriptionFilter = (prescriptionType: string) => {
+    setFilters((prev) => {
+      const prescription = prev.prescription.includes(prescriptionType)
+        ? prev.prescription.filter((type) => type !== prescriptionType)
+        : [...prev.prescription, prescriptionType]
+
+      return { ...prev, prescription }
+    })
+  }
+
+  const handleAddToCart = (medicineId: string, requiresPrescription: boolean) => {
+    if (requiresPrescription) {
+      toast.error('This medication requires a prescription')
+      return
+    }
+
+    addToCartMutation.mutate(medicineId)
+  }
+
+  const handleResetFilters = () => {
+    setFilters({
+      categories: [],
+      priceRange: [],
+      prescription: []
+    })
+    setSearchQuery('')
+    setSortOption('name')
     setCurrentPage(1)
+  }
+
+  const handleApplyFilters = () => {
+    setCurrentPage(1)
+    refetch()
   }
 
   const categoryFilters = [
@@ -42,11 +174,6 @@ const MedicinesPage = () => {
     { id: 'first-aid', label: 'First Aid' },
     { id: 'vitamins', label: 'Vitamins & Supplements' }
   ]
-
-  const handleCategoryChange = (categoryId: string) => {
-    setSelectedCategory(categoryId === selectedCategory ? null : categoryId)
-    setCurrentPage(1)
-  }
 
   return (
     <div className='container px-4 py-8 md:py-12'>
@@ -77,15 +204,17 @@ const MedicinesPage = () => {
 
         <div className='flex items-center space-x-2'>
           <span className='text-sm text-muted-foreground'>Sort by:</span>
-          <select className='rounded-md border border-input bg-background px-3 py-2 text-sm'>
-            <option value='name'>Name</option>
-            <option value='price-low'>Price: Low to High</option>
-            <option value='price-high'>Price: High to Low</option>
-            <option value='popular'>Popularity</option>
-          </select>
-          <Button variant='outline' size='icon'>
-            <Filter className='h-4 w-4' />
-          </Button>
+          <Select value={sortOption} onValueChange={setSortOption}>
+            <SelectTrigger className='w-[180px]'>
+              <SelectValue placeholder='Sort by' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='name'>Name (A-Z)</SelectItem>
+              <SelectItem value='-name'>Name (Z-A)</SelectItem>
+              <SelectItem value='price'>Price: Low to High</SelectItem>
+              <SelectItem value='-price'>Price: High to Low</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -101,8 +230,8 @@ const MedicinesPage = () => {
                   <div key={filter.id} className='flex items-center space-x-2'>
                     <Checkbox
                       id={filter.id}
-                      checked={filter.id === selectedCategory}
-                      onCheckedChange={() => handleCategoryChange(filter.id)}
+                      checked={filters.categories.includes(filter.id)}
+                      onCheckedChange={() => toggleCategoryFilter(filter.id)}
                     />
                     <Label htmlFor={filter.id} className='text-sm font-normal'>
                       {filter.label}
@@ -118,31 +247,51 @@ const MedicinesPage = () => {
               <h3 className='mb-3 font-medium'>Price Range</h3>
               <div className='space-y-2'>
                 <div className='flex items-center space-x-2'>
-                  <Checkbox id='price-0-10' />
+                  <Checkbox
+                    id='price-0-10'
+                    checked={filters.priceRange.includes('price-0-10')}
+                    onCheckedChange={() => togglePriceFilter('price-0-10')}
+                  />
                   <Label htmlFor='price-0-10' className='text-sm font-normal'>
                     $0 - $10
                   </Label>
                 </div>
                 <div className='flex items-center space-x-2'>
-                  <Checkbox id='price-10-25' />
+                  <Checkbox
+                    id='price-10-25'
+                    checked={filters.priceRange.includes('price-10-25')}
+                    onCheckedChange={() => togglePriceFilter('price-10-25')}
+                  />
                   <Label htmlFor='price-10-25' className='text-sm font-normal'>
                     $10 - $25
                   </Label>
                 </div>
                 <div className='flex items-center space-x-2'>
-                  <Checkbox id='price-25-50' />
+                  <Checkbox
+                    id='price-25-50'
+                    checked={filters.priceRange.includes('price-25-50')}
+                    onCheckedChange={() => togglePriceFilter('price-25-50')}
+                  />
                   <Label htmlFor='price-25-50' className='text-sm font-normal'>
                     $25 - $50
                   </Label>
                 </div>
                 <div className='flex items-center space-x-2'>
-                  <Checkbox id='price-50-100' />
+                  <Checkbox
+                    id='price-50-100'
+                    checked={filters.priceRange.includes('price-50-100')}
+                    onCheckedChange={() => togglePriceFilter('price-50-100')}
+                  />
                   <Label htmlFor='price-50-100' className='text-sm font-normal'>
                     $50 - $100
                   </Label>
                 </div>
                 <div className='flex items-center space-x-2'>
-                  <Checkbox id='price-100+' />
+                  <Checkbox
+                    id='price-100+'
+                    checked={filters.priceRange.includes('price-100+')}
+                    onCheckedChange={() => togglePriceFilter('price-100+')}
+                  />
                   <Label htmlFor='price-100+' className='text-sm font-normal'>
                     $100+
                   </Label>
@@ -156,13 +305,21 @@ const MedicinesPage = () => {
               <h3 className='mb-3 font-medium'>Prescription</h3>
               <div className='space-y-2'>
                 <div className='flex items-center space-x-2'>
-                  <Checkbox id='prescription-required' />
+                  <Checkbox
+                    id='prescription-required'
+                    checked={filters.prescription.includes('prescription-required')}
+                    onCheckedChange={() => togglePrescriptionFilter('prescription-required')}
+                  />
                   <Label htmlFor='prescription-required' className='text-sm font-normal'>
                     Prescription Required
                   </Label>
                 </div>
                 <div className='flex items-center space-x-2'>
-                  <Checkbox id='over-the-counter' />
+                  <Checkbox
+                    id='over-the-counter'
+                    checked={filters.prescription.includes('over-the-counter')}
+                    onCheckedChange={() => togglePrescriptionFilter('over-the-counter')}
+                  />
                   <Label htmlFor='over-the-counter' className='text-sm font-normal'>
                     Over-the-Counter
                   </Label>
@@ -172,16 +329,10 @@ const MedicinesPage = () => {
 
             <Separator />
 
-            <Button className='w-full'>Apply Filters</Button>
-            <Button
-              variant='outline'
-              className='w-full'
-              onClick={() => {
-                setSearchQuery('')
-                setSelectedCategory(null)
-                setCurrentPage(1)
-              }}
-            >
+            <Button className='w-full' onClick={handleApplyFilters}>
+              Apply Filters
+            </Button>
+            <Button variant='outline' className='w-full' onClick={handleResetFilters}>
               Reset
             </Button>
           </div>
@@ -215,14 +366,14 @@ const MedicinesPage = () => {
               <AlertCircle className='mb-2 h-10 w-10' />
               <h3 className='mb-2 text-lg font-semibold'>Error Loading Medications</h3>
               <p>There was a problem loading the medication data. Please try again later.</p>
-              <Button variant='outline' className='mt-4' onClick={() => window.location.reload()}>
+              <Button variant='outline' className='mt-4' onClick={() => refetch()}>
                 Try Again
               </Button>
             </div>
-          ) : data?.medicines && data.medicines.length > 0 ? (
+          ) : data?.data?.result.medicines && data?.data?.result.medicines.length > 0 ? (
             <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3'>
-              {data.medicines.map((medicine) => (
-                <Card key={medicine._id} className='flex flex-col'>
+              {data?.data?.result.medicines.map((medicine) => (
+                <Card key={medicine._id} className='flex flex-col transition-all hover:shadow-md'>
                   <CardHeader>
                     <div className='flex justify-between'>
                       <CardTitle className='line-clamp-1'>{medicine.name}</CardTitle>
@@ -237,28 +388,33 @@ const MedicinesPage = () => {
                     <CardDescription>{medicine.manufacturer}</CardDescription>
                   </CardHeader>
                   <CardContent className='flex-1'>
-                    <div className='mb-4 h-20 rounded-md bg-muted'></div>
+                    <div className='mb-4 h-20 rounded-md bg-muted flex items-center justify-center'>
+                      <Pill className='h-8 w-8 text-primary/60' />
+                    </div>
                     <div className='space-y-2'>
                       <div className='flex items-center justify-between'>
                         <span className='font-medium'>Price:</span>
-                        <span>${medicine.price.toFixed(2)}</span>
+                        <span className='font-bold text-primary'>${medicine.price.toFixed(2)}</span>
                       </div>
                       <div className='flex items-center justify-between'>
                         <span className='font-medium'>Availability:</span>
                         <span className='text-green-500'>In Stock</span>
                       </div>
+                      <p className='text-sm text-muted-foreground line-clamp-2 mt-2'>
+                        {medicine.description.substring(0, 100)}...
+                      </p>
                     </div>
                   </CardContent>
                   <CardFooter className='flex justify-between'>
-                    <Button
-                      variant='outline'
-                      onClick={() => navigate(`${path.medicines.replace(':id', medicine._id)}`)}
-                    >
+                    <Button variant='outline' onClick={() => navigate(`${path.medicines}/${medicine._id}`)}>
                       Details
                     </Button>
-                    <Button disabled={medicine.requires_prescription}>
+                    <Button
+                      onClick={() => handleAddToCart(medicine._id, medicine.requires_prescription)}
+                      disabled={medicine.requires_prescription || addToCartMutation.isPending}
+                    >
                       <ShoppingCart className='mr-2 h-4 w-4' />
-                      Add to Cart
+                      Add
                     </Button>
                   </CardFooter>
                 </Card>
@@ -271,39 +427,31 @@ const MedicinesPage = () => {
               <p className='text-muted-foreground'>
                 We couldn't find any medications matching your criteria. Try adjusting your filters or search terms.
               </p>
-              <Button
-                variant='outline'
-                className='mt-4'
-                onClick={() => {
-                  setSearchQuery('')
-                  setSelectedCategory(null)
-                  setCurrentPage(1)
-                }}
-              >
+              <Button variant='outline' className='mt-4' onClick={handleResetFilters}>
                 Reset Filters
               </Button>
             </div>
           )}
 
-          {data?.pagination && data.pagination.totalPages > 1 && (
+          {data?.data?.result.pagination && data?.data?.result.pagination.totalPages > 1 && (
             <Pagination className='mt-8'>
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
                     onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                    isActive={currentPage === 1 || isLoading}
+                    aria-disabled={currentPage === 1 || isLoading}
                   />
                 </PaginationItem>
 
-                {Array.from({ length: Math.min(5, data.pagination.totalPages) }, (_, i) => {
+                {Array.from({ length: Math.min(5, data?.data?.result.pagination.totalPages) }, (_, i) => {
                   const pageToShow =
                     currentPage <= 3
                       ? i + 1
-                      : currentPage >= data.pagination.totalPages - 2
-                        ? data.pagination.totalPages - 4 + i
+                      : currentPage >= data?.data?.result.pagination.totalPages - 2
+                        ? data?.data?.result.pagination.totalPages - 4 + i
                         : currentPage - 2 + i
 
-                  return pageToShow > 0 && pageToShow <= data.pagination.totalPages ? (
+                  return pageToShow > 0 && pageToShow <= data?.data?.result.pagination.totalPages ? (
                     <PaginationItem key={pageToShow}>
                       <PaginationLink isActive={currentPage === pageToShow} onClick={() => setCurrentPage(pageToShow)}>
                         {pageToShow}
@@ -314,8 +462,10 @@ const MedicinesPage = () => {
 
                 <PaginationItem>
                   <PaginationNext
-                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, data.pagination.totalPages))}
-                    isActive={currentPage === data.pagination.totalPages || isLoading}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, data?.data?.result.pagination.totalPages))
+                    }
+                    aria-disabled={currentPage === data?.data?.result.pagination.totalPages || isLoading}
                   />
                 </PaginationItem>
               </PaginationContent>
@@ -333,7 +483,7 @@ const MedicinesPage = () => {
             { id: 'vitamins', name: 'Vitamins & Supplements', icon: <Pill className='h-6 w-6' /> },
             { id: 'first-aid', name: 'First Aid', icon: <Pill className='h-6 w-6' /> }
           ].map((category) => (
-            <Card key={category.id} className='hover:bg-accent/50 hover:shadow-md'>
+            <Card key={category.id} className='hover:bg-accent/50 hover:shadow-md transition-all'>
               <CardHeader>
                 <div className='flex items-center space-x-2'>
                   <div className='flex h-10 w-10 items-center justify-center rounded-full bg-primary/10'>
@@ -350,8 +500,12 @@ const MedicinesPage = () => {
                   variant='ghost'
                   className='w-full'
                   onClick={() => {
-                    setSelectedCategory(category.id)
+                    setFilters((prev) => ({
+                      ...prev,
+                      categories: [category.id]
+                    }))
                     setCurrentPage(1)
+                    refetch()
                   }}
                 >
                   Explore <ArrowRight className='ml-2 h-4 w-4' />
