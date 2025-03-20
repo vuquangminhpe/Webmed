@@ -28,6 +28,8 @@ import InsuranceGuidePage from './pages/InsuranceGuidePage'
 import CheckoutPage from './pages/CheckoutPage'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = Boolean(getAccessTokenFromLS())
 
@@ -39,6 +41,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  const queryClient = new QueryClient()
+
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAccessTokenFromLS()))
 
   useEffect(() => {
@@ -57,82 +61,84 @@ function App() {
 
   return (
     <>
-      <Router>
-        <MainLayout>
-          <Routes>
-            <Route path={path.home} element={<HomePage />} />
-            <Route path={path.login} element={<LoginPage />} />
-            <Route path={path.register} element={<RegisterPage />} />
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <MainLayout>
+            <Routes>
+              <Route path={path.home} element={<HomePage />} />
+              <Route path={path.login} element={<LoginPage />} />
+              <Route path={path.register} element={<RegisterPage />} />
 
-            <Route path={path.healthAZ} element={<HealthAZPage />} />
-            <Route path={path.disease} element={<DiseaseDetailPage />} />
-            <Route path={`${path.healthAZ}/symptoms`} element={<SymptomCheckerPage />} />
+              <Route path={path.healthAZ} element={<HealthAZPage />} />
+              <Route path={path.disease} element={<DiseaseDetailPage />} />
+              <Route path={`${path.healthAZ}/symptoms`} element={<SymptomCheckerPage />} />
 
-            <Route path={path.medicines} element={<MedicinesPage />} />
-            <Route path={path.medicine} element={<MedicineDetailPage />} />
+              <Route path={path.medicines} element={<MedicinesPage />} />
+              <Route path={path.medicine} element={<MedicineDetailPage />} />
 
-            <Route path={path.doctors} element={<DoctorsPage />} />
-            <Route path={path.doctor} element={<DoctorDetailPage />} />
+              <Route path={path.doctors} element={<DoctorsPage />} />
+              <Route path={path.doctor} element={<DoctorDetailPage />} />
 
-            <Route path='/resources/health-calculator' element={<HealthCalculatorPage />} />
-            <Route path='/resources/insurance-guide' element={<InsuranceGuidePage />} />
+              <Route path='/resources/health-calculator' element={<HealthCalculatorPage />} />
+              <Route path='/resources/insurance-guide' element={<InsuranceGuidePage />} />
 
-            <Route path={path.feedback} element={<FeedbackPage />} />
+              <Route path={path.feedback} element={<FeedbackPage />} />
 
-            <Route
-              path={path.profile}
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={path.changePassword}
-              element={
-                <ProtectedRoute>
-                  <ChangePasswordPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={path.orders}
-              element={
-                <ProtectedRoute>
-                  <OrdersPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={path.order}
-              element={
-                <ProtectedRoute>
-                  <OrderDetailPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={path.checkout}
-              element={
-                <ProtectedRoute>
-                  <CheckoutPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={path.paymentSuccess}
-              element={
-                <ProtectedRoute>
-                  <PaymentSuccessPage />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path={path.profile}
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={path.changePassword}
+                element={
+                  <ProtectedRoute>
+                    <ChangePasswordPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={path.orders}
+                element={
+                  <ProtectedRoute>
+                    <OrdersPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={path.order}
+                element={
+                  <ProtectedRoute>
+                    <OrderDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={path.checkout}
+                element={
+                  <ProtectedRoute>
+                    <CheckoutPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={path.paymentSuccess}
+                element={
+                  <ProtectedRoute>
+                    <PaymentSuccessPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route path='*' element={<NotFoundPage />} />
-          </Routes>
-        </MainLayout>
-      </Router>
-      <Toaster />
+              <Route path='*' element={<NotFoundPage />} />
+            </Routes>
+          </MainLayout>
+        </Router>
+        <Toaster />
+      </QueryClientProvider>
     </>
   )
 }

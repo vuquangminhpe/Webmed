@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import userApi from '@/apis/users.api'
@@ -15,6 +16,7 @@ import {
   clearLocalStorage
 } from '@/utils/auth'
 import path from '@/constants/path'
+import axios from 'axios'
 
 export const useRegister = () => {
   const navigate = useNavigate()
@@ -30,18 +32,24 @@ export const useRegister = () => {
 
 export const useLogin = () => {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (body: { email: string; password: string }) => userApi.login(body),
     onSuccess: (data) => {
-      const { access_token, refresh_token, user } = data.data.result
+      const { access_token, refresh_token } = data.data.result
+      const AboutController = new AbortController()
+      const signal = AboutController.signal
+      axios
+        .get('http://localhost:5000/api/users/me', {
+          headers: {
+            Authorization: `Bearer ${access_token}`
+          },
+          signal: signal
+        })
+        .then((res) => setProfileFromLS(res.data.result))
 
       saveAccessTokenToLS(access_token)
       setRefreshTokenToLS(refresh_token)
-      setProfileFromLS(user)
-
-      queryClient.setQueryData(['user'], user)
       toast.success('Login successful!')
       navigate(path.home)
     }

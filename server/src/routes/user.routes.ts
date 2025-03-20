@@ -45,15 +45,9 @@ usersRouter.post(
   wrapAsync(VerifyForgotPasswordController)
 )
 usersRouter.post('/reset-password', resetPasswordValidator, wrapAsync(resetPasswordController))
-usersRouter.post(
-  '/change-password',
-  AccessTokenValidator,
-  verifiedUserValidator,
-  changePasswordValidator,
-  wrapAsync(changePasswordController)
-)
+usersRouter.post('/change-password', AccessTokenValidator, changePasswordValidator, wrapAsync(changePasswordController))
 
-usersRouter.get('/me', AccessTokenValidator, verifiedUserValidator, wrapAsync(getMeController))
-usersRouter.patch('/me', AccessTokenValidator, verifiedUserValidator, updateMeValidator, wrapAsync(updateMeController))
+usersRouter.get('/me', AccessTokenValidator, wrapAsync(getMeController))
+usersRouter.patch('/me', AccessTokenValidator, updateMeValidator, wrapAsync(updateMeController))
 
 export default usersRouter

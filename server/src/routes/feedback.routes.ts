@@ -15,21 +15,21 @@ const feedbackRouter = Router()
 feedbackRouter.get('/feedbacks', wrapAsync(getAllFeedbacksController))
 feedbackRouter.get('/feedbacks/:id', wrapAsync(getFeedbackByIdController))
 
-feedbackRouter.post('/feedbacks', AccessTokenValidator, verifiedUserValidator, wrapAsync(createFeedbackController))
+feedbackRouter.post('/feedbacks', AccessTokenValidator, wrapAsync(createFeedbackController))
 
-feedbackRouter.put('/feedbacks/:id', AccessTokenValidator, verifiedUserValidator, wrapAsync(updateFeedbackController))
+feedbackRouter.put('/feedbacks/:id', AccessTokenValidator, wrapAsync(updateFeedbackController))
 
 feedbackRouter.delete(
   '/feedbacks/:id',
   AccessTokenValidator,
-  verifiedUserValidator,
+
   wrapAsync(deleteFeedbackController)
 )
 
 feedbackRouter.get(
   '/user/feedbacks',
   AccessTokenValidator,
-  verifiedUserValidator,
+
   wrapAsync(getUserFeedbacksController)
 )
 
