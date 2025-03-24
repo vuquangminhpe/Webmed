@@ -11,7 +11,7 @@ import { envConfig } from '~/constant/config'
 
 class DatabaseService {
   private client: MongoClient
-  private db: Db
+  public db: Db
 
   constructor() {
     this.client = new MongoClient(envConfig.dbUri as string)

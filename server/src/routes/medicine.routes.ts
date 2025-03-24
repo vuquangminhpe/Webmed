@@ -1,5 +1,12 @@
 import { Router } from 'express'
 import {
+  addToCartController,
+  clearCartController,
+  getCartController,
+  removeFromCartController,
+  updateCartItemController
+} from '~/controllers/cart.controllers'
+import {
   cancelOrderController,
   createMedicineController,
   deleteMedicineController,
@@ -31,5 +38,9 @@ medicineRouter.post('/medicines', AccessTokenValidator, wrapAsync(createMedicine
 medicineRouter.put('/medicines/:id', AccessTokenValidator, wrapAsync(updateMedicineController))
 
 medicineRouter.delete('/medicines/:id', AccessTokenValidator, wrapAsync(deleteMedicineController))
-
+medicineRouter.post('/cart', AccessTokenValidator, wrapAsync(addToCartController))
+medicineRouter.get('/cart', AccessTokenValidator, wrapAsync(getCartController))
+medicineRouter.put('/cart/:medicineId', AccessTokenValidator, wrapAsync(updateCartItemController))
+medicineRouter.delete('/cart/:medicineId', AccessTokenValidator, wrapAsync(removeFromCartController))
+medicineRouter.delete('/cart', AccessTokenValidator, wrapAsync(clearCartController))
 export default medicineRouter

@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from 'react'
+// client/src/pages/MedicinesPage/MedicinesPage.tsx
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query'
-import { Pill, Search, Filter, ArrowRight, ShoppingCart, AlertCircle, Heart } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Pill, Search, Filter, ArrowRight, ShoppingCart, AlertCircle, Heart, Check, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,6 +24,7 @@ import path from '@/constants/path'
 import { toast } from 'sonner'
 import medicineApi from '@/apis/medicine.api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useAddToCart } from '@/hooks/useCart' // Import the useAddToCart hook
 import { Label } from '@/Components/ui/label'
 
 interface FilterState {
@@ -42,8 +44,11 @@ const MedicinesPage = () => {
     prescription: []
   })
 
+  // Use the proper hook
+  const addToCart = useAddToCart()
+
   // Generate query parameters based on current filters
-  const getQueryParams = (): any => {
+  const getQueryParams = () => {
     const queryParams: Record<string, any> = {
       page: currentPage,
       limit: 9,
@@ -83,25 +88,8 @@ const MedicinesPage = () => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['medicines', currentPage, searchQuery, sortOption, filters],
     queryFn: () => {
-      const { page, limit, search, sort, minPrice, maxPrice, category, requiresPrescription } = getQueryParams()
-      return medicineApi.getMedicines(page, limit, { search, sort, minPrice, maxPrice, category, requiresPrescription })
-    },
-    placeholderData: keepPreviousData
-  })
-
-  // Add to cart mutation
-  const addToCartMutation = useMutation({
-    mutationFn: (medicineId: string) => {
-      // This would be your actual add to cart API call
-      // For now we'll just simulate it with a promise
-      return Promise.resolve({ medicineId, quantity: 1 })
-    },
-    onSuccess: (_, medicineId) => {
-      const medicine = data?.data?.result.medicines.find((m) => m._id === medicineId)
-      toast.success(`Added ${medicine?.name || 'medicine'} to cart`)
-    },
-    onError: () => {
-      toast.error('Failed to add item to cart')
+      const params = getQueryParams()
+      return medicineApi.getMedicines(params.page, params.limit, params as any)
     }
   })
 
@@ -146,7 +134,8 @@ const MedicinesPage = () => {
       return
     }
 
-    addToCartMutation.mutate(medicineId)
+    // Use the proper addToCart hook
+    addToCart.mutate({ medicineId, quantity: 1 })
   }
 
   const handleResetFilters = () => {
@@ -177,35 +166,41 @@ const MedicinesPage = () => {
 
   return (
     <div className='container px-4 py-8 md:py-12'>
-      <div className='flex flex-col items-center justify-center space-y-4 text-center'>
-        <div className='flex h-16 w-16 items-center justify-center rounded-full bg-primary/10'>
-          <Pill className='h-8 w-8 text-primary' />
+      {/* Header with improved styling */}
+      <div className='flex flex-col items-center justify-center space-y-4 text-center mb-12'>
+        <div className='flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-primary/80 to-primary'>
+          <Pill className='h-10 w-10 text-white' />
         </div>
-        <h1 className='text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl'>Drugs & Supplements</h1>
+        <h1 className='text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent'>
+          Drugs & Supplements
+        </h1>
         <p className='mx-auto max-w-[700px] text-muted-foreground md:text-xl'>
           Browse and order medications, vitamins, and wellness products.
         </p>
       </div>
 
-      <div className='mt-8 flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0'>
+      {/* Search and Sort */}
+      <div className='mt-8 flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 bg-muted/30 p-4 rounded-lg'>
         <form onSubmit={handleSearch} className='flex items-center space-x-2 md:w-1/2'>
           <div className='relative flex-1'>
             <Search className='absolute left-2.5 top-2.5 h-5 w-5 text-muted-foreground' />
             <Input
               type='search'
               placeholder='Search medications...'
-              className='pl-10'
+              className='pl-10 bg-white'
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button type='submit'>Search</Button>
+          <Button type='submit' variant='default'>
+            Search
+          </Button>
         </form>
 
         <div className='flex items-center space-x-2'>
           <span className='text-sm text-muted-foreground'>Sort by:</span>
           <Select value={sortOption} onValueChange={setSortOption}>
-            <SelectTrigger className='w-[180px]'>
+            <SelectTrigger className='w-[180px] bg-white'>
               <SelectValue placeholder='Sort by' />
             </SelectTrigger>
             <SelectContent>
@@ -219,12 +214,22 @@ const MedicinesPage = () => {
       </div>
 
       <div className='mt-8 flex flex-col lg:flex-row lg:space-x-8'>
-        <div className='mb-8 rounded-lg border p-4 lg:mb-0 lg:w-1/4'>
-          <h2 className='mb-4 text-lg font-semibold'>Filters</h2>
+        {/* Filters */}
+        <div className='mb-8 rounded-lg border shadow-sm p-4 lg:mb-0 lg:w-1/4 lg:sticky lg:top-20 lg:self-start'>
+          <div className='flex items-center justify-between mb-4'>
+            <h2 className='text-lg font-semibold flex items-center'>
+              <Filter className='h-4 w-4 mr-2 text-primary' />
+              Filters
+            </h2>
+
+            <Button variant='ghost' size='sm' onClick={handleResetFilters} className='text-xs h-8'>
+              Reset All
+            </Button>
+          </div>
 
           <div className='space-y-6'>
             <div>
-              <h3 className='mb-3 font-medium'>Categories</h3>
+              <h3 className='mb-3 font-medium text-sm text-muted-foreground'>CATEGORIES</h3>
               <div className='space-y-2'>
                 {categoryFilters.map((filter) => (
                   <div key={filter.id} className='flex items-center space-x-2'>
@@ -244,7 +249,7 @@ const MedicinesPage = () => {
             <Separator />
 
             <div>
-              <h3 className='mb-3 font-medium'>Price Range</h3>
+              <h3 className='mb-3 font-medium text-sm text-muted-foreground'>PRICE RANGE</h3>
               <div className='space-y-2'>
                 <div className='flex items-center space-x-2'>
                   <Checkbox
@@ -302,7 +307,7 @@ const MedicinesPage = () => {
             <Separator />
 
             <div>
-              <h3 className='mb-3 font-medium'>Prescription</h3>
+              <h3 className='mb-3 font-medium text-sm text-muted-foreground'>PRESCRIPTION TYPE</h3>
               <div className='space-y-2'>
                 <div className='flex items-center space-x-2'>
                   <Checkbox
@@ -332,23 +337,21 @@ const MedicinesPage = () => {
             <Button className='w-full' onClick={handleApplyFilters}>
               Apply Filters
             </Button>
-            <Button variant='outline' className='w-full' onClick={handleResetFilters}>
-              Reset
-            </Button>
           </div>
         </div>
 
+        {/* Medicine Cards */}
         <div className='flex-1'>
           {isLoading ? (
             <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3'>
               {[...Array(6)].map((_, index) => (
-                <Card key={index} className='flex flex-col'>
+                <Card key={index} className='flex flex-col h-[400px]'>
                   <CardHeader>
                     <Skeleton className='h-6 w-3/4' />
                     <Skeleton className='h-4 w-1/2' />
                   </CardHeader>
                   <CardContent className='flex-1'>
-                    <Skeleton className='mb-4 h-20 w-full' />
+                    <Skeleton className='mb-4 h-40 w-full rounded-md' />
                     <div className='space-y-2'>
                       <Skeleton className='h-4 w-full' />
                       <Skeleton className='h-4 w-full' />
@@ -370,58 +373,98 @@ const MedicinesPage = () => {
                 Try Again
               </Button>
             </div>
-          ) : data?.data?.result.medicines && data?.data?.result.medicines.length > 0 ? (
-            <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3'>
-              {data?.data?.result.medicines.map((medicine) => (
-                <Card key={medicine._id} className='flex flex-col transition-all hover:shadow-md'>
-                  <CardHeader>
-                    <div className='flex justify-between'>
-                      <CardTitle className='line-clamp-1'>{medicine.name}</CardTitle>
+          ) : data?.data?.result.medicines && data.data.result.medicines.length > 0 ? (
+            <>
+              <div className='flex justify-between items-center mb-4'>
+                <h2 className='text-lg font-medium'>Showing {data.data.result.medicines.length} products</h2>
+                <p className='text-sm text-muted-foreground'>
+                  Page {currentPage} of {data.data.result.pagination?.totalPages || 1}
+                </p>
+              </div>
+
+              <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3'>
+                {data.data.result.medicines.map((medicine) => (
+                  <Card
+                    key={medicine._id}
+                    className='flex flex-col transition-all hover:shadow-md group relative overflow-hidden border-gray-200'
+                  >
+                    {/* Prescription badge */}
+                    <div className='absolute top-3 right-3 z-10'>
                       {medicine.requires_prescription ? (
-                        <Badge variant='outline'>Prescription Required</Badge>
+                        <Badge className='font-medium bg-red-100 text-red-700 hover:bg-red-200'>
+                          Prescription Required
+                        </Badge>
                       ) : (
-                        <Badge variant='outline' className='bg-primary/10'>
+                        <Badge className='font-medium bg-green-100 text-green-700 hover:bg-green-200'>
                           Over-the-Counter
                         </Badge>
                       )}
                     </div>
-                    <CardDescription>{medicine.manufacturer}</CardDescription>
-                  </CardHeader>
-                  <CardContent className='flex-1'>
-                    <div className='mb-4 h-20 rounded-md bg-muted flex items-center justify-center'>
-                      <Pill className='h-8 w-8 text-primary/60' />
-                    </div>
-                    <div className='space-y-2'>
-                      <div className='flex items-center justify-between'>
-                        <span className='font-medium'>Price:</span>
-                        <span className='font-bold text-primary'>${medicine.price.toFixed(2)}</span>
+
+                    <CardHeader className='p-6'>
+                      <div className='h-36 flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 rounded-md mb-4'>
+                        <Pill className='h-16 w-16 text-primary/80' />
                       </div>
-                      <div className='flex items-center justify-between'>
-                        <span className='font-medium'>Availability:</span>
-                        <span className='text-green-500'>In Stock</span>
+                      <CardTitle className='line-clamp-1 text-lg font-medium'>{medicine.name}</CardTitle>
+                      <CardDescription className='line-clamp-1'>{medicine.manufacturer}</CardDescription>
+                    </CardHeader>
+
+                    <CardContent className='px-6 pb-4 flex-1'>
+                      <div className='space-y-1'>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-sm text-muted-foreground'>Dosage:</span>
+                          <span className='text-sm font-medium'>{medicine.dosage}</span>
+                        </div>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-sm text-muted-foreground'>Price:</span>
+                          <span className='text-xl font-bold text-primary'>${medicine.price.toFixed(2)}</span>
+                        </div>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-sm text-muted-foreground'>Status:</span>
+                          <Badge variant='outline' className='bg-green-50 text-green-700 hover:bg-green-100'>
+                            <Check className='h-3 w-3 mr-1' /> In Stock
+                          </Badge>
+                        </div>
                       </div>
-                      <p className='text-sm text-muted-foreground line-clamp-2 mt-2'>
-                        {medicine.description.substring(0, 100)}...
+
+                      <p className='text-sm text-muted-foreground line-clamp-2 mt-4'>
+                        {medicine.description.substring(0, 90)}...
                       </p>
-                    </div>
-                  </CardContent>
-                  <CardFooter className='flex justify-between'>
-                    <Button variant='outline' onClick={() => navigate(`${path.medicines}/${medicine._id}`)}>
-                      Details
-                    </Button>
-                    <Button
-                      onClick={() => handleAddToCart(medicine._id, medicine.requires_prescription)}
-                      disabled={medicine.requires_prescription || addToCartMutation.isPending}
-                    >
-                      <ShoppingCart className='mr-2 h-4 w-4' />
-                      Add
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+
+                    <CardFooter className='px-6 py-4 border-t flex justify-between mt-auto'>
+                      <Button
+                        variant='outline'
+                        onClick={() => navigate(`${path.medicines}/${medicine._id}`)}
+                        className='flex-1 mr-2'
+                      >
+                        Details
+                      </Button>
+
+                      <Button
+                        onClick={() => handleAddToCart(medicine._id, medicine.requires_prescription)}
+                        disabled={medicine.requires_prescription || addToCart.isPending}
+                        className={`flex-1 ${!medicine.requires_prescription ? 'bg-primary hover:bg-primary/90' : ''}`}
+                      >
+                        {addToCart.isPending && addToCart.variables?.medicineId === medicine._id ? (
+                          <span className='flex items-center'>
+                            <Loader2 className='h-4 w-4 mr-2 animate-spin' />
+                            Adding...
+                          </span>
+                        ) : (
+                          <span className='flex items-center'>
+                            <ShoppingCart className='mr-2 h-4 w-4' />
+                            Add to Cart
+                          </span>
+                        )}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            </>
           ) : (
-            <div className='flex flex-col items-center justify-center rounded-lg border p-8 text-center'>
+            <div className='flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center'>
               <Pill className='mb-2 h-10 w-10 text-muted-foreground' />
               <h3 className='mb-2 text-lg font-semibold'>No Medications Found</h3>
               <p className='text-muted-foreground'>
@@ -433,7 +476,8 @@ const MedicinesPage = () => {
             </div>
           )}
 
-          {data?.data?.result.pagination && data?.data?.result.pagination.totalPages > 1 && (
+          {/* Pagination */}
+          {data?.data?.result.pagination && data.data.result.pagination.totalPages > 1 && (
             <Pagination className='mt-8'>
               <PaginationContent>
                 <PaginationItem>
@@ -443,15 +487,15 @@ const MedicinesPage = () => {
                   />
                 </PaginationItem>
 
-                {Array.from({ length: Math.min(5, data?.data?.result.pagination.totalPages) }, (_, i) => {
+                {Array.from({ length: Math.min(5, data.data.result.pagination.totalPages) }, (_, i) => {
                   const pageToShow =
                     currentPage <= 3
                       ? i + 1
-                      : currentPage >= data?.data?.result.pagination.totalPages - 2
-                        ? data?.data?.result.pagination.totalPages - 4 + i
+                      : currentPage >= data.data.result.pagination.totalPages - 2
+                        ? data.data.result.pagination.totalPages - 4 + i
                         : currentPage - 2 + i
 
-                  return pageToShow > 0 && pageToShow <= data?.data?.result.pagination.totalPages ? (
+                  return pageToShow > 0 && pageToShow <= data.data.result.pagination.totalPages ? (
                     <PaginationItem key={pageToShow}>
                       <PaginationLink isActive={currentPage === pageToShow} onClick={() => setCurrentPage(pageToShow)}>
                         {pageToShow}
@@ -462,10 +506,8 @@ const MedicinesPage = () => {
 
                 <PaginationItem>
                   <PaginationNext
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(prev + 1, data?.data?.result.pagination.totalPages))
-                    }
-                    aria-disabled={currentPage === data?.data?.result.pagination.totalPages || isLoading}
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, data.data.result.pagination.totalPages))}
+                    aria-disabled={currentPage === data.data.result.pagination.totalPages || isLoading}
                   />
                 </PaginationItem>
               </PaginationContent>
@@ -474,19 +516,35 @@ const MedicinesPage = () => {
         </div>
       </div>
 
+      {/* Featured Categories */}
       <div className='mt-16'>
         <h2 className='mb-8 text-2xl font-bold tracking-tight'>Featured Categories</h2>
         <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4'>
           {[
-            { id: 'diabetes', name: 'Diabetes Care', icon: <Pill className='h-6 w-6' /> },
-            { id: 'heart', name: 'Heart Health', icon: <Heart className='h-6 w-6' /> },
-            { id: 'vitamins', name: 'Vitamins & Supplements', icon: <Pill className='h-6 w-6' /> },
-            { id: 'first-aid', name: 'First Aid', icon: <Pill className='h-6 w-6' /> }
+            {
+              id: 'diabetes',
+              name: 'Diabetes Care',
+              icon: <Pill className='h-6 w-6' />,
+              color: 'bg-blue-50 text-blue-600'
+            },
+            { id: 'heart', name: 'Heart Health', icon: <Heart className='h-6 w-6' />, color: 'bg-red-50 text-red-600' },
+            {
+              id: 'vitamins',
+              name: 'Vitamins & Supplements',
+              icon: <Pill className='h-6 w-6' />,
+              color: 'bg-green-50 text-green-600'
+            },
+            {
+              id: 'first-aid',
+              name: 'First Aid',
+              icon: <Pill className='h-6 w-6' />,
+              color: 'bg-orange-50 text-orange-600'
+            }
           ].map((category) => (
-            <Card key={category.id} className='hover:bg-accent/50 hover:shadow-md transition-all'>
+            <Card key={category.id} className='hover:shadow-md transition-all overflow-hidden group cursor-pointer'>
               <CardHeader>
                 <div className='flex items-center space-x-2'>
-                  <div className='flex h-10 w-10 items-center justify-center rounded-full bg-primary/10'>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-full ${category.color}`}>
                     {category.icon}
                   </div>
                   <CardTitle>{category.name}</CardTitle>
@@ -495,10 +553,10 @@ const MedicinesPage = () => {
               <CardContent>
                 <CardDescription>Browse our selection of {category.name.toLowerCase()} products.</CardDescription>
               </CardContent>
-              <CardFooter>
+              <CardFooter className='border-t pt-4'>
                 <Button
                   variant='ghost'
-                  className='w-full'
+                  className='w-full group-hover:bg-primary/10 group-hover:text-primary'
                   onClick={() => {
                     setFilters((prev) => ({
                       ...prev,
@@ -508,7 +566,7 @@ const MedicinesPage = () => {
                     refetch()
                   }}
                 >
-                  Explore <ArrowRight className='ml-2 h-4 w-4' />
+                  Explore <ArrowRight className='ml-2 h-4 w-4 transition-transform group-hover:translate-x-1' />
                 </Button>
               </CardFooter>
             </Card>
@@ -516,7 +574,8 @@ const MedicinesPage = () => {
         </div>
       </div>
 
-      <div className='mt-16 rounded-lg bg-muted p-8'>
+      {/* Call to Action */}
+      <div className='mt-16 rounded-lg bg-gradient-to-r from-primary/10 to-blue-50 p-8'>
         <div className='flex flex-col items-center justify-center space-y-4 text-center md:space-y-6'>
           <h2 className='text-2xl font-bold tracking-tight md:text-3xl'>Need advice on medications?</h2>
           <p className='mx-auto max-w-[700px] text-muted-foreground'>

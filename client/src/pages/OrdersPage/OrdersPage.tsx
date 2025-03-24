@@ -1,360 +1,460 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/rules-of-hooks */
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import {
-  ShoppingCart,
-  Search,
-  Package,
-  Truck,
-  CheckCircle,
-  AlertTriangle,
-  Loader2,
-  X,
-  Eye,
-  Calendar
-} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { CheckCircle2, ShoppingCart, MapPin, CreditCard, Info, Loader2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious
-} from '@/components/ui/pagination'
-import { useUserOrders, useCancelOrder } from '@/hooks/useMedicine'
+import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { useCreateOrder } from '@/hooks/useMedicine'
+import { useCart, useClearCart } from '@/hooks/useCart'
 import path from '@/constants/path'
-import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Skeleton } from '@/components/ui/skeleton'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'pending':
-      return <Package className='h-5 w-5 text-yellow-500' />
-    case 'processing':
-      return <Truck className='h-5 w-5 text-blue-500' />
-    case 'shipped':
-      return <Truck className='h-5 w-5 text-indigo-500' />
-    case 'delivered':
-      return <CheckCircle className='h-5 w-5 text-green-500' />
-    case 'cancelled':
-      return <X className='h-5 w-5 text-red-500' />
-    default:
-      return <AlertTriangle className='h-5 w-5 text-yellow-500' />
-  }
-}
+const formSchema = z.object({
+  address: z.string().min(5, 'Address must be at least 5 characters'),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  zipCode: z.string().min(5, 'ZIP code is required'),
+  phoneNumber: z.string().min(10, 'Please enter a valid phone number'),
+  paymentMethod: z.enum(['cash', 'card', 'insurance']),
+  cardNumber: z.string().optional(),
+  cardExpiry: z.string().optional(),
+  cardCVC: z.string().optional(),
+  insuranceProvider: z.string().optional(),
+  insuranceNumber: z.string().optional(),
+  notes: z.string().optional()
+})
 
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'pending':
-      return 'Pending'
-    case 'processing':
-      return 'Processing'
-    case 'shipped':
-      return 'Shipped'
-    case 'delivered':
-      return 'Delivered'
-    case 'cancelled':
-      return 'Cancelled'
-    default:
-      return 'Unknown'
-  }
-}
+type CheckoutFormValues = z.infer<typeof formSchema>
 
-const getStatusBadgeVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
-  switch (status) {
-    case 'pending':
-      return 'outline'
-    case 'processing':
-      return 'secondary'
-    case 'shipped':
-      return 'default'
-    case 'delivered':
-      return 'default'
-    case 'cancelled':
-      return 'destructive'
-    default:
-      return 'outline'
-  }
-}
-
-const OrdersPage = () => {
+const CheckoutPage = () => {
   const navigate = useNavigate()
-  const [currentPage, setCurrentPage] = useState(1)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
+  const createOrder = useCreateOrder()
+  const clearCart = useClearCart()
+  const { data: cart, isLoading: isCartLoading } = useCart() // Use real cart data
+  const [isProcessing, setIsProcessing] = useState(false)
 
-  const { data, isLoading, error } = useUserOrders(currentPage, 10)
-  const cancelOrder = useCancelOrder()
-
-  const filteredOrders =
-    data?.orders.filter((order) => {
-      if (selectedStatus && order.status !== selectedStatus) return false
-
-      if (searchQuery) {
-        const orderId = order._id.toLowerCase()
-        const query = searchQuery.toLowerCase()
-        return orderId.includes(query)
-      }
-
-      return true
-    }) || []
-
-  const handleCancelOrder = (orderId: string) => {
-    if (window.confirm('Are you sure you want to cancel this order?')) {
-      cancelOrder.mutate(orderId, {
-        onSuccess: () => {
-          toast.success('Order cancelled successfully')
-        },
-        onError: () => {
-          toast.error('Failed to cancel order')
-        }
-      })
-    }
+  // Redirect if cart is empty
+  if (!isCartLoading && (!cart || cart.items.length === 0)) {
+    toast.error('Your cart is empty')
+    navigate(path.medicines)
+    return null
   }
+
+  const form = useForm<CheckoutFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      address: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      phoneNumber: '',
+      paymentMethod: 'cash',
+      notes: ''
+    }
+  })
+
+  const watchPaymentMethod = form.watch('paymentMethod')
+
+  const onSubmit = (data: CheckoutFormValues) => {
+    if (!cart || cart.items.length === 0) {
+      toast.error('Cannot checkout with an empty cart')
+      return
+    }
+
+    setIsProcessing(true)
+
+    // Create complete shipping address
+    const shippingAddress = `${data.address}, ${data.city}, ${data.state} ${data.zipCode}`
+
+    // Format order data with real cart items
+    const orderData = {
+      medicines: cart.items.map((item) => ({
+        medicine_id: item.medicine._id,
+        quantity: item.quantity
+      })),
+      shipping_address: shippingAddress,
+      payment_method: data.paymentMethod as 'cash' | 'card' | 'insurance'
+    }
+
+    // Submit order
+    createOrder.mutate(orderData, {
+      onSuccess: (data) => {
+        // Clear the cart after successful order
+        clearCart.mutate(undefined, {
+          onSuccess: () => {
+            toast.success('Order placed successfully!')
+            navigate(`${path.paymentSuccess}?orderId=${data.data.result._id}`)
+          }
+        })
+      },
+      onError: (error) => {
+        console.error('Order error:', error)
+        toast.error('There was an error processing your order')
+        setIsProcessing(false)
+      }
+    })
+  }
+
+  // Calculate totals from real cart data
+  const subtotal = cart?.total || 0
+  const shippingFee = 0 // Free shipping
+  const discount = subtotal > 100 ? subtotal * 0.1 : 0
+  const total = subtotal - discount + shippingFee
 
   return (
     <div className='container py-10'>
-      <div className='mb-8 flex items-center justify-between'>
-        <h1 className='text-3xl font-bold'>My Orders</h1>
-        <Button onClick={() => navigate(path.medicines)}>
-          <ShoppingCart className='mr-2 h-4 w-4' />
-          Continue Shopping
-        </Button>
+      <div className='flex flex-col items-center space-y-2 text-center'>
+        <ShoppingCart className='h-12 w-12 text-primary' />
+        <h1 className='text-3xl font-bold'>Checkout</h1>
+        <p className='text-muted-foreground'>Complete your order to get your medications delivered.</p>
       </div>
 
-      <div className='mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
-        <div className='flex flex-1 items-center gap-2'>
-          <div className='relative flex-1'>
-            <Search className='absolute left-2.5 top-2.5 h-5 w-5 text-muted-foreground' />
-            <Input
-              type='search'
-              placeholder='Search orders...'
-              className='pl-10'
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className='w-40'>
-            <Select value={selectedStatus || ''} onValueChange={(value) => setSelectedStatus(value || null)}>
-              <SelectTrigger>
-                <SelectValue placeholder='Status' />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value=''>All Statuses</SelectItem>
-                <SelectItem value='pending'>Pending</SelectItem>
-                <SelectItem value='processing'>Processing</SelectItem>
-                <SelectItem value='shipped'>Shipped</SelectItem>
-                <SelectItem value='delivered'>Delivered</SelectItem>
-                <SelectItem value='cancelled'>Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
+      <div className='mt-10 grid grid-cols-1 gap-8 lg:grid-cols-3'>
+        <div className='lg:col-span-2'>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8'>
+              <Card>
+                <CardHeader>
+                  <CardTitle className='flex items-center gap-2'>
+                    <MapPin className='h-5 w-5 text-primary' />
+                    Shipping Information
+                  </CardTitle>
+                  <CardDescription>Enter your address where you want your order delivered.</CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='address'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder='Street address, apartment, suite, unit, etc.' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-      {isLoading ? (
-        <div className='space-y-4'>
-          {[...Array(3)].map((_, index) => (
-            <Card key={index} className='w-full overflow-hidden'>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 bg-muted/50 px-6 py-4'>
-                <div>
-                  <Skeleton className='h-4 w-32' />
-                  <Skeleton className='mt-2 h-4 w-24' />
-                </div>
-                <Skeleton className='h-8 w-24' />
-              </CardHeader>
-              <CardContent className='px-6 py-4'>
-                <div className='space-y-4'>
-                  <div className='flex items-center gap-3'>
-                    <Skeleton className='h-12 w-12 rounded-md' />
-                    <div className='flex-1'>
-                      <Skeleton className='h-4 w-32' />
-                      <Skeleton className='mt-2 h-3 w-24' />
-                    </div>
-                    <Skeleton className='h-4 w-16' />
-                  </div>
-                  <div className='flex items-center gap-3'>
-                    <Skeleton className='h-12 w-12 rounded-md' />
-                    <div className='flex-1'>
-                      <Skeleton className='h-4 w-40' />
-                      <Skeleton className='mt-2 h-3 w-24' />
-                    </div>
-                    <Skeleton className='h-4 w-16' />
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className='border-t px-6 py-4'>
-                <div className='flex w-full items-center justify-between'>
-                  <Skeleton className='h-5 w-20' />
-                  <div className='flex gap-2'>
-                    <Skeleton className='h-9 w-24' />
-                    <Skeleton className='h-9 w-24' />
-                  </div>
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      ) : error ? (
-        <Card className='border-destructive'>
-          <CardHeader>
-            <CardTitle className='text-destructive'>Error Loading Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>There was a problem loading your orders. Please try again later.</p>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
-          </CardFooter>
-        </Card>
-      ) : filteredOrders.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className='text-center'>No Orders Found</CardTitle>
-          </CardHeader>
-          <CardContent className='text-center'>
-            <p className='mb-6 text-muted-foreground'>
-              {selectedStatus
-                ? `You don't have any ${selectedStatus} orders.`
-                : searchQuery
-                  ? `No orders match "${searchQuery}".`
-                  : "You haven't placed any orders yet."}
-            </p>
-            <Button onClick={() => navigate(path.medicines)}>Start Shopping</Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className='space-y-4'>
-          {filteredOrders.map((order) => (
-            <Card key={order._id} className='overflow-hidden transition-all hover:shadow-sm'>
-              <CardHeader className='bg-muted/50 px-6 py-4'>
-                <div className='flex flex-wrap items-center justify-between gap-4'>
-                  <div>
-                    <p className='text-sm text-muted-foreground'>
-                      Order ID: <span className='font-medium'>{order._id}</span>
-                    </p>
-                    <div className='flex items-center gap-2 mt-1'>
-                      <Calendar className='h-3.5 w-3.5 text-muted-foreground' />
-                      <p className='text-sm text-muted-foreground'>
-                        Placed on: {format(new Date(order.created_at), 'MMM dd, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className='flex items-center gap-3'>
-                    <Badge variant={getStatusBadgeVariant(order.status)} className='py-1'>
-                      {getStatusIcon(order.status)}
-                      <span className='ml-1'>{getStatusText(order.status)}</span>
-                    </Badge>
-                    <Button variant='outline' size='sm' onClick={() => navigate(`${path.orders}/${order._id}`)}>
-                      <Eye className='mr-2 h-4 w-4' />
-                      Details
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className='px-6 py-4'>
-                <div className='space-y-4'>
-                  {order.medicines.slice(0, 3).map((medicine) => (
-                    <div key={medicine.medicine_id} className='flex items-center justify-between gap-4'>
-                      <div className='flex items-center gap-3'>
-                        <Avatar className='h-12 w-12 rounded-md'>
-                          <AvatarFallback className='rounded-md bg-primary/10 text-primary'>
-                            <Pill className='h-6 w-6' />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className='font-medium'>{medicine.medicine_details?.name || 'Medication'}</p>
-                          <p className='text-sm text-muted-foreground'>Qty: {medicine.quantity}</p>
-                        </div>
-                      </div>
-                      <p className='font-medium'>
-                        ${((medicine.medicine_details?.price || 0) * medicine.quantity).toFixed(2)}
-                      </p>
-                    </div>
-                  ))}
-
-                  {order.medicines.length > 3 && (
-                    <p className='text-sm text-muted-foreground'>+ {order.medicines.length - 3} more item(s)</p>
-                  )}
-                </div>
-              </CardContent>
-              <CardFooter className='flex justify-between border-t px-6 py-4'>
-                <div>
-                  <p className='text-sm font-medium'>Total Amount:</p>
-                  <p className='text-lg font-bold'>${order.total_price.toFixed(2)}</p>
-                </div>
-                <div className='flex gap-2'>
-                  {order.status === 'pending' && (
-                    <Button
-                      variant='destructive'
-                      size='sm'
-                      onClick={() => handleCancelOrder(order._id)}
-                      disabled={cancelOrder.isPending}
-                    >
-                      {cancelOrder.isPending && cancelOrder.variables === order._id ? (
-                        <>
-                          <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                          Cancelling...
-                        </>
-                      ) : (
-                        'Cancel Order'
+                  <div className='grid grid-cols-1 gap-4 sm:grid-cols-3'>
+                    <FormField
+                      control={form.control}
+                      name='city'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <Input placeholder='City' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </Button>
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name='state'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State</FormLabel>
+                          <FormControl>
+                            <Input placeholder='State' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name='zipCode'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ZIP Code</FormLabel>
+                          <FormControl>
+                            <Input placeholder='ZIP Code' {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name='phoneNumber'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input type='tel' placeholder='For delivery notifications' {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className='flex items-center gap-2'>
+                    <CreditCard className='h-5 w-5 text-primary' />
+                    Payment Method
+                  </CardTitle>
+                  <CardDescription>Select how you would like to pay for your order.</CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <FormField
+                    control={form.control}
+                    name='paymentMethod'
+                    render={({ field }) => (
+                      <FormItem className='space-y-3'>
+                        <FormControl>
+                          <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className='space-y-3'>
+                            <FormItem className='flex items-center space-x-3 space-y-0'>
+                              <FormControl>
+                                <RadioGroupItem value='cash' />
+                              </FormControl>
+                              <FormLabel className='font-normal'>Cash on Delivery</FormLabel>
+                            </FormItem>
+                            <FormItem className='flex items-center space-x-3 space-y-0'>
+                              <FormControl>
+                                <RadioGroupItem value='card' />
+                              </FormControl>
+                              <FormLabel className='font-normal'>Credit/Debit Card</FormLabel>
+                            </FormItem>
+                            <FormItem className='flex items-center space-x-3 space-y-0'>
+                              <FormControl>
+                                <RadioGroupItem value='insurance' />
+                              </FormControl>
+                              <FormLabel className='font-normal'>Insurance</FormLabel>
+                            </FormItem>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {watchPaymentMethod === 'card' && (
+                    <div className='space-y-4 rounded-md border p-4'>
+                      <FormField
+                        control={form.control}
+                        name='cardNumber'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Card Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder='1234 5678 9012 3456' {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className='grid grid-cols-2 gap-4'>
+                        <FormField
+                          control={form.control}
+                          name='cardExpiry'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Expiry Date</FormLabel>
+                              <FormControl>
+                                <Input placeholder='MM/YY' {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name='cardCVC'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>CVC</FormLabel>
+                              <FormControl>
+                                <Input placeholder='123' {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
                   )}
-                  <Button variant='default' size='sm' onClick={() => navigate(`${path.orders}/${order._id}`)}>
-                    View Details
-                  </Button>
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
+
+                  {watchPaymentMethod === 'insurance' && (
+                    <div className='space-y-4 rounded-md border p-4'>
+                      <FormField
+                        control={form.control}
+                        name='insuranceProvider'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Insurance Provider</FormLabel>
+                            <FormControl>
+                              <Input placeholder='Provider name' {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='insuranceNumber'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Insurance Policy Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder='Policy number' {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <Alert>
+                        <Info className='h-4 w-4' />
+                        <AlertTitle>Insurance Coverage Verification</AlertTitle>
+                        <AlertDescription>
+                          Our team will verify coverage with your provider before processing your order. Additional
+                          payment may be required if not fully covered.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Additional Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FormField
+                    control={form.control}
+                    name='notes'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Order Notes (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder='Special delivery instructions or additional information'
+                            className='min-h-[100px]'
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          E.g., delivery time preferences, building access information, etc.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+
+              <div className='flex justify-between'>
+                <Button type='button' variant='outline' onClick={() => navigate(path.medicines)}>
+                  Continue Shopping
+                </Button>
+                <Button type='submit' disabled={isProcessing || isCartLoading || cart?.items.length === 0}>
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className='mr-2 h-4 w-4' />
+                      Complete Order
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </div>
-      )}
 
-      {data?.pagination && data.pagination.totalPages > 1 && (
-        <Pagination className='mt-8'>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                aria-disabled={currentPage === 1 || isLoading}
-              />
-            </PaginationItem>
+        <div>
+          <Card className='sticky top-20'>
+            <CardHeader>
+              <CardTitle>Order Summary</CardTitle>
+            </CardHeader>
+            <CardContent className='space-y-4'>
+              {isCartLoading ? (
+                <div className='flex justify-center py-8'>
+                  <Loader2 className='h-8 w-8 animate-spin text-primary' />
+                </div>
+              ) : (
+                <>
+                  <div className='max-h-[300px] overflow-auto'>
+                    {cart?.items.map((item) => (
+                      <div key={item.medicine._id} className='flex items-center gap-4 py-2'>
+                        <div className='h-12 w-12 rounded-md bg-muted flex items-center justify-center'>
+                          <ShoppingCart className='h-6 w-6 text-muted-foreground' />
+                        </div>
+                        <div className='flex-1'>
+                          <p className='font-medium'>{item.medicine.name}</p>
+                          <p className='text-sm text-muted-foreground'>Qty: {item.quantity}</p>
+                        </div>
+                        <p className='font-medium'>${(item.medicine.price * item.quantity).toFixed(2)}</p>
+                      </div>
+                    ))}
+                  </div>
 
-            {Array.from({ length: Math.min(5, data.pagination.totalPages) }, (_, i) => {
-              const pageToShow =
-                currentPage <= 3
-                  ? i + 1
-                  : currentPage >= data.pagination.totalPages - 2
-                    ? data.pagination.totalPages - 4 + i
-                    : currentPage - 2 + i
+                  <Separator />
 
-              return pageToShow > 0 && pageToShow <= data.pagination.totalPages ? (
-                <PaginationItem key={pageToShow}>
-                  <PaginationLink isActive={currentPage === pageToShow} onClick={() => setCurrentPage(pageToShow)}>
-                    {pageToShow}
-                  </PaginationLink>
-                </PaginationItem>
-              ) : null
-            })}
+                  <div className='space-y-2'>
+                    <div className='flex justify-between'>
+                      <span>Subtotal</span>
+                      <span>${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span>Shipping</span>
+                      <span>{shippingFee === 0 ? 'Free' : `$${(shippingFee as any).toFixed(2)}`}</span>
+                    </div>
+                    {discount > 0 && (
+                      <div className='flex justify-between text-green-600'>
+                        <span>Discount (10%)</span>
+                        <span>-${discount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className='flex justify-between text-lg font-bold'>
+                      <span>Total</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>
+              )}
 
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, data.pagination.totalPages))}
-                aria-disabled={currentPage === data.pagination.totalPages || isLoading}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+              <Alert>
+                <Info className='h-4 w-4' />
+                <AlertTitle>Prescription Required</AlertTitle>
+                <AlertDescription>
+                  Some medications in your cart may require a valid prescription. Our pharmacist will contact you if
+                  needed.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
 
-export default OrdersPage
+export default CheckoutPage

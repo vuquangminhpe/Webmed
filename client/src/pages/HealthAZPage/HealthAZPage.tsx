@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Heart, Search, AlertCircle, Info, ArrowRight, Stethoscope, BookOpen } from 'lucide-react'

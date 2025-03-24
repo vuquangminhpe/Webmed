@@ -1,6 +1,7 @@
+// Updated MedicineDetailPage.tsx
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ShoppingCart, Plus, Minus, AlertCircle, CheckCircle2, Info } from 'lucide-react'
+import { ArrowLeft, ShoppingCart, Plus, Minus, AlertCircle, CheckCircle2, Info, Loader2, Pill } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -8,8 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useMedicine } from '@/hooks/useMedicine'
+import { useAddToCart } from '@/hooks/useCart' // Import the proper hook
 import path from '@/constants/path'
-import { toast } from 'sonner'
 
 const MedicineDetailPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -17,14 +18,17 @@ const MedicineDetailPage = () => {
   const [quantity, setQuantity] = useState(1)
 
   const { data: medicine, isLoading, error } = useMedicine(id || '')
+  const addToCart = useAddToCart() // Use the proper hook
 
   const incrementQuantity = () => setQuantity((prev) => prev + 1)
   const decrementQuantity = () => setQuantity((prev) => Math.max(prev - 1, 1))
 
-  const addToCart = () => {
+  const handleAddToCart = () => {
     if (!medicine) return
+    if (medicine.requires_prescription) return
 
-    toast.success(`Added ${quantity} ${medicine.name} to cart!`)
+    // Use the proper hook with the right parameters
+    addToCart.mutate({ medicineId: medicine._id, quantity })
   }
 
   if (isLoading) {
@@ -103,7 +107,9 @@ const MedicineDetailPage = () => {
         {/* Left Column: Image and Purchase Options */}
         <div className='lg:w-1/3'>
           <div className='overflow-hidden rounded-lg border'>
-            <div className='aspect-square w-full bg-muted'></div>
+            <div className='aspect-square w-full bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center'>
+              <ShoppingCart className='h-24 w-24 text-gray-300' />
+            </div>
           </div>
 
           <Card className='mt-6'>
@@ -112,9 +118,9 @@ const MedicineDetailPage = () => {
                 <CardTitle>Purchase Options</CardTitle>
                 <div>
                   {medicine.requires_prescription ? (
-                    <Badge>Prescription Required</Badge>
+                    <Badge className='bg-red-100 text-red-700 hover:bg-red-200'>Prescription Required</Badge>
                   ) : (
-                    <Badge variant='outline' className='bg-primary/10'>
+                    <Badge variant='outline' className='bg-green-100 text-green-700 hover:bg-green-200'>
                       Over-the-Counter
                     </Badge>
                   )}
@@ -126,12 +132,12 @@ const MedicineDetailPage = () => {
               <div className='space-y-6'>
                 <div className='flex items-center justify-between'>
                   <span className='font-medium'>Price:</span>
-                  <span className='text-lg font-bold'>${medicine.price.toFixed(2)}</span>
+                  <span className='text-lg font-bold text-primary'>${medicine.price.toFixed(2)}</span>
                 </div>
 
                 <div className='flex items-center justify-between'>
                   <span className='font-medium'>Availability:</span>
-                  <span className='flex items-center text-green-500'>
+                  <span className='flex items-center text-green-600'>
                     <CheckCircle2 className='mr-1 h-4 w-4' />
                     In Stock
                   </span>
@@ -139,21 +145,45 @@ const MedicineDetailPage = () => {
 
                 <div className='flex items-center justify-between'>
                   <span className='font-medium'>Quantity:</span>
-                  <div className='flex items-center'>
-                    <Button variant='outline' size='icon' onClick={decrementQuantity} disabled={quantity <= 1}>
+                  <div className='flex items-center border rounded-md'>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='h-9 rounded-none rounded-l-md'
+                      onClick={decrementQuantity}
+                      disabled={quantity <= 1}
+                    >
                       <Minus className='h-4 w-4' />
                     </Button>
-                    <span className='mx-4 w-8 text-center'>{quantity}</span>
-                    <Button variant='outline' size='icon' onClick={incrementQuantity}>
+                    <div className='flex items-center justify-center h-9 w-12 text-center border-x'>{quantity}</div>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='h-9 rounded-none rounded-r-md'
+                      onClick={incrementQuantity}
+                    >
                       <Plus className='h-4 w-4' />
                     </Button>
                   </div>
                 </div>
 
                 <div className='flex flex-col space-y-3'>
-                  <Button onClick={addToCart} disabled={medicine.requires_prescription} className='w-full'>
-                    <ShoppingCart className='mr-2 h-4 w-4' />
-                    Add to Cart
+                  <Button
+                    onClick={handleAddToCart}
+                    disabled={medicine.requires_prescription || addToCart.isPending}
+                    className='w-full'
+                  >
+                    {addToCart.isPending ? (
+                      <>
+                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                        Adding to Cart...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className='mr-2 h-4 w-4' />
+                        Add to Cart
+                      </>
+                    )}
                   </Button>
 
                   {medicine.requires_prescription ? (
@@ -394,20 +424,22 @@ const MedicineDetailPage = () => {
             { id: '4', name: 'Paracetamol Syrup', category: 'Pain Relief', price: 7.99 },
             { id: '5', name: 'Cold & Flu Relief', category: 'Cough & Cold', price: 8.99 }
           ].map((relatedMedicine) => (
-            <Card key={relatedMedicine.id} className='flex flex-col'>
+            <Card key={relatedMedicine.id} className='flex flex-col group hover:shadow-md transition-all'>
               <CardHeader className='pb-3'>
-                <CardTitle className='line-clamp-2'>{relatedMedicine.name}</CardTitle>
+                <CardTitle className='line-clamp-2 text-base'>{relatedMedicine.name}</CardTitle>
                 <CardDescription>{relatedMedicine.category}</CardDescription>
               </CardHeader>
               <CardContent className='flex-1'>
-                <div className='mb-4 h-20 rounded-md bg-muted'></div>
-                <div className='font-medium'>${relatedMedicine.price.toFixed(2)}</div>
+                <div className='mb-4 h-20 rounded-md bg-muted flex items-center justify-center'>
+                  <Pill className='h-8 w-8 text-gray-400 group-hover:text-primary transition-colors' />
+                </div>
+                <div className='font-medium text-lg text-primary'>${relatedMedicine.price.toFixed(2)}</div>
               </CardContent>
-              <CardFooter>
+              <CardFooter className='border-t pt-4'>
                 <Button
                   variant='ghost'
-                  className='w-full'
-                  onClick={() => navigate(`${path.medicines.replace(':id', relatedMedicine.id)}`)}
+                  className='w-full group-hover:bg-primary/10 group-hover:text-primary'
+                  onClick={() => navigate(`${path.medicines}/${relatedMedicine.id}`)}
                 >
                   View Details
                 </Button>

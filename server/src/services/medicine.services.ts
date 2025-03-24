@@ -89,8 +89,16 @@ class MedicineService {
   }
 
   async orderMedicine(userId: string, orderData: OrderMedicineReqBody) {
+    if (!orderData.medicines || orderData.medicines.length === 0) {
+      throw new ErrorWithStatus({
+        message: 'Order must contain at least one medicine',
+        status: HTTP_STATUS.BAD_REQUEST
+      })
+    }
+
     let totalPrice = 0
 
+    // Verify all medicines exist and calculate total price
     for (const item of orderData.medicines) {
       const medicine = await databaseService.medicines.findOne({ _id: new ObjectId(item.medicine_id) })
 
@@ -125,6 +133,11 @@ class MedicineService {
 
     await databaseService.orders.insertOne(order)
 
+    // Clear the user's cart after creating order
+    await databaseService.db.collection('cart_items').deleteMany({
+      user_id: new ObjectId(userId)
+    })
+
     return {
       order,
       message: WEBMED_MESSAGES.MEDICINE_ORDER_PLACED
@@ -144,6 +157,7 @@ class MedicineService {
       databaseService.orders.countDocuments({ user_id: new ObjectId(userId) })
     ])
 
+    // Populate medicine details for each order
     const ordersWithDetails = await Promise.all(
       orders.map(async (order) => {
         const medicinesWithDetails = await Promise.all(
@@ -175,6 +189,7 @@ class MedicineService {
   }
 
   async getOrderById(orderId: string, userId: string) {
+    // First check if order exists for this user
     const order = await databaseService.orders.findOne({
       _id: new ObjectId(orderId),
       user_id: new ObjectId(userId)
@@ -187,6 +202,7 @@ class MedicineService {
       })
     }
 
+    // Populate medicine details
     const medicinesWithDetails = await Promise.all(
       order.medicines.map(async (item) => {
         const medicine = await databaseService.medicines.findOne({ _id: item.medicine_id })

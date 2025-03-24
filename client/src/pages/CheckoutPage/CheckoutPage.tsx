@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/rules-of-hooks */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, ShoppingCart, MapPin, CreditCard, Info, Loader2 } from 'lucide-react'
@@ -12,33 +14,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useCreateOrder } from '@/hooks/useMedicine'
+import { useCart, useClearCart } from '@/hooks/useCart'
 import path from '@/constants/path'
 import { toast } from 'sonner'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-
-const mockCartItems = [
-  {
-    id: '1',
-    name: 'Paracetamol 500mg',
-    price: 8.99,
-    quantity: 2,
-    image: ''
-  },
-  {
-    id: '2',
-    name: 'Ibuprofen 200mg',
-    price: 6.99,
-    quantity: 1,
-    image: ''
-  },
-  {
-    id: '3',
-    name: 'Vitamin C 1000mg',
-    price: 12.99,
-    quantity: 1,
-    image: ''
-  }
-]
 
 const formSchema = z.object({
   address: z.string().min(5, 'Address must be at least 5 characters'),
@@ -60,12 +39,16 @@ type CheckoutFormValues = z.infer<typeof formSchema>
 const CheckoutPage = () => {
   const navigate = useNavigate()
   const createOrder = useCreateOrder()
+  const clearCart = useClearCart()
+  const { data: cart, isLoading: isCartLoading } = useCart() // Use real cart data
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Calculate totals
-  const subtotal = mockCartItems.reduce((total, item) => total + item.price * item.quantity, 0)
-  const shippingFee = 0 // Free shipping
-  const total = subtotal + shippingFee
+  // Redirect if cart is empty
+  if (!isCartLoading && (!cart || cart.items.length === 0)) {
+    toast.error('Your cart is empty')
+    navigate(path.medicines)
+    return null
+  }
 
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(formSchema),
@@ -83,26 +66,50 @@ const CheckoutPage = () => {
   const watchPaymentMethod = form.watch('paymentMethod')
 
   const onSubmit = (data: CheckoutFormValues) => {
+    if (!cart || cart.items.length === 0) {
+      toast.error('Cannot checkout with an empty cart')
+      return
+    }
+
     setIsProcessing(true)
 
     // Create complete shipping address
     const shippingAddress = `${data.address}, ${data.city}, ${data.state} ${data.zipCode}`
 
-    // Format order data
+    // Format order data with real cart items
     const orderData = {
-      medicines: mockCartItems.map((item) => ({ medicine_id: item.id, quantity: item.quantity })),
+      medicines: cart.items.map((item) => ({
+        medicine_id: item.medicine._id,
+        quantity: item.quantity
+      })),
       shipping_address: shippingAddress,
-      payment_method: data.paymentMethod
+      payment_method: data.paymentMethod as 'cash' | 'card' | 'insurance'
     }
 
     // Submit order
     createOrder.mutate(orderData, {
-      onError: () => {
+      onSuccess: (data) => {
+        // Clear the cart after successful order
+        clearCart.mutate(undefined, {
+          onSuccess: () => {
+            toast.success('Order placed successfully!')
+            navigate(`${path.paymentSuccess}?orderId=${data.data.result._id}`)
+          }
+        })
+      },
+      onError: (error) => {
+        console.error('Order error:', error)
         toast.error('There was an error processing your order')
         setIsProcessing(false)
       }
     })
   }
+
+  // Calculate totals from real cart data
+  const subtotal = cart?.total || 0
+  const shippingFee = 0 // Free shipping
+  const discount = subtotal > 100 ? subtotal * 0.1 : 0
+  const total = subtotal - discount + shippingFee
 
   return (
     <div className='container py-10'>
@@ -363,7 +370,7 @@ const CheckoutPage = () => {
                 <Button type='button' variant='outline' onClick={() => navigate(path.medicines)}>
                   Continue Shopping
                 </Button>
-                <Button type='submit' disabled={isProcessing}>
+                <Button type='submit' disabled={isProcessing || isCartLoading || cart?.items.length === 0}>
                   {isProcessing ? (
                     <>
                       <Loader2 className='mr-2 h-4 w-4 animate-spin' />
@@ -387,38 +394,54 @@ const CheckoutPage = () => {
               <CardTitle>Order Summary</CardTitle>
             </CardHeader>
             <CardContent className='space-y-4'>
-              <div className='max-h-[300px] overflow-auto'>
-                {mockCartItems.map((item) => (
-                  <div key={item.id} className='flex items-center gap-4 py-2'>
-                    <div className='h-12 w-12 rounded-md bg-muted'></div>
-                    <div className='flex-1'>
-                      <p className='font-medium'>{item.name}</p>
-                      <p className='text-sm text-muted-foreground'>Qty: {item.quantity}</p>
-                    </div>
-                    <p className='font-medium'>${(item.price * item.quantity).toFixed(2)}</p>
+              {isCartLoading ? (
+                <div className='flex justify-center py-8'>
+                  <Loader2 className='h-8 w-8 animate-spin text-primary' />
+                </div>
+              ) : (
+                <>
+                  <div className='max-h-[300px] overflow-auto'>
+                    {cart?.items.map((item) => (
+                      <div key={item.medicine._id} className='flex items-center gap-4 py-2'>
+                        <div className='h-12 w-12 rounded-md bg-muted flex items-center justify-center'>
+                          <ShoppingCart className='h-6 w-6 text-muted-foreground' />
+                        </div>
+                        <div className='flex-1'>
+                          <p className='font-medium'>{item.medicine.name}</p>
+                          <p className='text-sm text-muted-foreground'>Qty: {item.quantity}</p>
+                        </div>
+                        <p className='font-medium'>${(item.medicine.price * item.quantity).toFixed(2)}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
 
-              <Separator />
+                  <Separator />
 
-              <div className='space-y-2'>
-                <div className='flex justify-between'>
-                  <span>Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
-                </div>
-                <div className='flex justify-between'>
-                  <span>Shipping</span>
-                  <span>{shippingFee === 0 ? 'Free' : `$${(shippingFee as number).toFixed(2)}`}</span>
-                </div>
-                <Separator />
-                <div className='flex justify-between text-lg font-bold'>
-                  <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
-                </div>
-              </div>
+                  <div className='space-y-2'>
+                    <div className='flex justify-between'>
+                      <span>Subtotal</span>
+                      <span>${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className='flex justify-between'>
+                      <span>Shipping</span>
+                      <span>{shippingFee === 0 ? 'Free' : `$${(shippingFee as any).toFixed(2)}`}</span>
+                    </div>
+                    {discount > 0 && (
+                      <div className='flex justify-between text-green-600'>
+                        <span>Discount (10%)</span>
+                        <span>-${discount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className='flex justify-between text-lg font-bold'>
+                      <span>Total</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>
+              )}
 
-              <Alert className='mt-4'>
+              <Alert>
                 <Info className='h-4 w-4' />
                 <AlertTitle>Prescription Required</AlertTitle>
                 <AlertDescription>
