@@ -83,7 +83,7 @@ const CheckoutPage = () => {
         quantity: item.quantity
       })),
       shipping_address: shippingAddress,
-      payment_method: data.paymentMethod as 'cash' | 'card' | 'insurance'
+      payment_method: data?.paymentMethod as 'cash' | 'card' | 'insurance'
     }
 
     // Submit order

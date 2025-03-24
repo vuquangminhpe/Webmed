@@ -8,6 +8,8 @@ import Order from '~/models/schemas/Order.schema'
 import Feedback from '~/models/schemas/Feedback.schema'
 import RefreshToken from '~/models/schemas/RefreshToken.schema'
 import { envConfig } from '~/constant/config'
+import Appointment from '~/models/schemas/Appointment.schema'
+import Review from '~/models/schemas/Review.schema'
 
 class DatabaseService {
   private client: MongoClient
@@ -58,6 +60,14 @@ class DatabaseService {
 
   get feedbacks(): Collection<Feedback> {
     return this.db.collection('feedbacks')
+  }
+
+  get appointments(): Collection<Appointment> {
+    return this.db.collection('appointments')
+  }
+
+  get reviews(): Collection<Review> {
+    return this.db.collection('reviews')
   }
 }
 

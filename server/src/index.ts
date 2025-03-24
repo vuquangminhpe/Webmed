@@ -10,6 +10,7 @@ import { envConfig } from './constant/config'
 import databaseService from './services/database.services'
 import usersRouter from './routes/user.routes'
 import { defaultErrorHandler } from './middlewares/error.middlewares'
+import doctorRouter from './routes/doctor.routes'
 
 const app = express()
 const PORT = envConfig.port || 5000
@@ -25,7 +26,7 @@ app.use('/api/users', usersRouter)
 app.use('/api/health', healthRouter)
 app.use('/api/medicine', medicineRouter)
 app.use('/api/feedback', feedbackRouter)
-
+app.use('/api/doctors', doctorRouter)
 app.use(defaultErrorHandler)
 
 app.listen(PORT, () => {
