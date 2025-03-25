@@ -22,13 +22,17 @@ import OrderDetailPage from './pages/OrderDetailPage'
 import NotFoundPage from './pages/NotFoundPage'
 import SymptomCheckerPage from './pages/SymptomCheckerPage'
 import DoctorsPage from './pages/DoctorsPage'
-import DoctorDetailPage from './pages/DoctorsPage'
 import HealthCalculatorPage from './pages/HealthCalculatorPage'
 import InsuranceGuidePage from './pages/InsuranceGuidePage'
 import CheckoutPage from './pages/CheckoutPage'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import AppointmentsListPage from './pages/AppointmentsListPage'
+import DoctorDetailPage from './pages/DoctorsPage/DoctorDetailPage'
+import SymptomSearchPage from './pages/SymptomSearchPage/SymptomSearchPage'
+import AppointmentDetailPage from './pages/AppointmentDetailPage'
+import AppointmentBookingPage from './pages/AppointmentsPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = Boolean(getAccessTokenFromLS())
@@ -76,8 +80,36 @@ function App() {
               <Route path={path.medicines} element={<MedicinesPage />} />
               <Route path={path.medicine} element={<MedicineDetailPage />} />
 
+              {/* Doctor routes */}
               <Route path={path.doctors} element={<DoctorsPage />} />
               <Route path={path.doctor} element={<DoctorDetailPage />} />
+              <Route path={path.doctorSymptomSearch} element={<SymptomSearchPage />} />
+
+              {/* Appointment routes */}
+              <Route
+                path={path.appointments}
+                element={
+                  <ProtectedRoute>
+                    <AppointmentsListPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={path.appointment}
+                element={
+                  <ProtectedRoute>
+                    <AppointmentDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={path.appointmentBooking}
+                element={
+                  <ProtectedRoute>
+                    <AppointmentBookingPage />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route path='/resources/health-calculator' element={<HealthCalculatorPage />} />
               <Route path='/resources/insurance-guide' element={<InsuranceGuidePage />} />

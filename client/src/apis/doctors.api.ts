@@ -68,16 +68,17 @@ const doctorApi = {
   getDoctorById: (id: string) => http.get<SuccessResponse<Doctor>>(`/doctors/${id}`),
 
   bookAppointment: (data: { doctor_id: string; date: string; time: string; reason: string }) =>
-    http.post<SuccessResponse<Appointment>>('/appointments', data),
+    http.post<SuccessResponse<Appointment>>('/doctors/appointments', data),
 
   getUserAppointments: (page: number = 1, limit: number = 10) =>
-    http.get<SuccessResponse<AppointmentListResponse>>('/appointments', {
+    http.get<SuccessResponse<AppointmentListResponse>>('/doctors/appointments', {
       params: { page, limit }
     }),
 
-  getAppointmentById: (id: string) => http.get<SuccessResponse<Appointment>>(`/appointments/${id}`),
+  getAppointmentById: (id: string) => http.get<SuccessResponse<Appointment>>(`/doctors/appointments/${id}`),
 
-  cancelAppointment: (id: string) => http.post<SuccessResponse<{ message: string }>>(`/appointments/${id}/cancel`),
+  cancelAppointment: (id: string) =>
+    http.post<SuccessResponse<{ message: string }>>(`/doctors/appointments/${id}/cancel`),
 
   getDoctorAvailability: (doctorId: string, date: string) =>
     http.get<SuccessResponse<{ available_times: string[] }>>(`/doctors/${doctorId}/availability`, {

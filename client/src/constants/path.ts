@@ -18,6 +18,10 @@ const path = {
   paymentSuccess: '/payment-success',
   doctors: '/doctors',
   doctor: '/doctors/:id',
+  doctorSymptomSearch: '/doctors/search/symptoms',
+  appointments: '/appointments',
+  appointment: '/appointments/:id',
+  appointmentBooking: '/appointments/book/:doctorId',
   feedback: '/feedback'
 }
 

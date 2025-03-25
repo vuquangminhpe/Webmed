@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/rules-of-hooks */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, ShoppingCart, MapPin, CreditCard, Info, Loader2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
@@ -43,13 +42,7 @@ const CheckoutPage = () => {
   const { data: cart, isLoading: isCartLoading } = useCart() // Use real cart data
   const [isProcessing, setIsProcessing] = useState(false)
 
-  // Redirect if cart is empty
-  if (!isCartLoading && (!cart || cart.items.length === 0)) {
-    toast.error('Your cart is empty')
-    navigate(path.medicines)
-    return null
-  }
-
+  // IMPORTANT: Always initialize the form, even if there's no cart data yet
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -62,6 +55,14 @@ const CheckoutPage = () => {
       notes: ''
     }
   })
+
+  // Use useEffect for navigation instead of early return
+  useEffect(() => {
+    if (!isCartLoading && (!cart || cart?.items?.length === 0)) {
+      toast.error('Your cart is empty')
+      navigate(path.medicines)
+    }
+  }, [cart, isCartLoading, navigate])
 
   const watchPaymentMethod = form.watch('paymentMethod')
 
@@ -103,6 +104,35 @@ const CheckoutPage = () => {
         setIsProcessing(false)
       }
     })
+  }
+
+  // If cart is still loading or empty, show a loading state or return a simple message
+  // but don't return null (which would cause hooks to be skipped)
+  if (isCartLoading) {
+    return (
+      <div className='container flex h-[calc(100vh-200px)] items-center justify-center'>
+        <div className='flex flex-col items-center gap-2'>
+          <Loader2 className='h-8 w-8 animate-spin text-primary' />
+          <p>Loading checkout information...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Only proceed with rendering the full checkout form if we have a cart with items
+  // This check happens after all hooks are called
+  if (!cart || cart.items.length === 0) {
+    return (
+      <div className='container flex h-[calc(100vh-200px)] items-center justify-center'>
+        <div className='flex flex-col items-center gap-2'>
+          <ShoppingCart className='h-8 w-8 text-muted-foreground' />
+          <p>Your cart is empty. Add items to proceed with checkout.</p>
+          <Button onClick={() => navigate(path.medicines)} className='mt-4'>
+            Browse Medicines
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   // Calculate totals from real cart data
