@@ -11,7 +11,8 @@ import {
   XCircle,
   AlertCircle,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  Star
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,7 +23,6 @@ import {
   DialogContent,
   DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
   DialogClose
@@ -136,167 +136,220 @@ const AppointmentDetailPage = () => {
   const statusInfo = getStatusInfo(appointment.status)
 
   return (
-    <div className='container py-10 max-w-3xl mx-auto'>
-      <div className='mb-6'>
-        <Button variant='ghost' onClick={() => navigate('/appointments')} className='mb-4'>
-          <ArrowLeft className='mr-2 h-4 w-4' />
-          Back to Appointments
-        </Button>
-        <h1 className='text-3xl font-bold'>Appointment Details</h1>
-      </div>
+    <div className='min-h-screen bg-gradient-to-b from-indigo-50 via-white to-white p-4'>
+      <div className='container py-6 max-w-4xl mx-auto'>
+        <div className='mb-8 flex items-center'>
+          <Button
+            variant='ghost'
+            onClick={() => navigate('/appointments')}
+            className='mr-4 hover:bg-indigo-100 transition-all duration-200'
+          >
+            <ArrowLeft className='mr-2 h-4 w-4' />
+            Back
+          </Button>
+          <div>
+            <h1 className='text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'>
+              Appointment Details
+            </h1>
+            <p className='text-slate-500 mt-1'>Manage your upcoming medical appointment</p>
+          </div>
+        </div>
 
-      <Card className='mb-6'>
-        <CardContent className='p-6'>
-          <div className='flex items-center justify-between mb-6'>
-            <div className='flex items-center'>
-              <div className='mr-4'>{statusInfo.icon}</div>
-              <div>
-                <Badge className={statusInfo.color} variant='outline'>
-                  {statusInfo.label}
-                </Badge>
-                <p className='text-sm text-muted-foreground mt-1'>{statusInfo.description}</p>
+        <Card className='mb-8 border-none overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl'>
+          <div className={`p-6 ${statusInfo.color}`}>
+            <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6'>
+              <div className='flex items-center'>
+                <div className='rounded-full bg-white p-3 shadow-md mr-4'>{statusInfo.icon}</div>
+                <div>
+                  <Badge className={`${statusInfo.color} px-4 py-1 text-sm font-semibold rounded-full`}>
+                    {statusInfo.label}
+                  </Badge>
+                  <p className='text-sm text-slate-600 mt-2 font-medium'>{statusInfo.description}</p>
+                </div>
               </div>
-            </div>
 
-            {(appointment.status === 'pending' || appointment.status === 'confirmed') && (
-              <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-                <DialogTrigger asChild>
-                  <Button variant='destructive' size='sm'>
-                    Cancel Appointment
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Cancel Appointment</DialogTitle>
-                    <DialogDescription>
-                      Are you sure you want to cancel this appointment? This action cannot be undone.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter className='mt-4'>
-                    <DialogClose asChild>
-                      <Button variant='outline'>Keep Appointment</Button>
-                    </DialogClose>
+              {(appointment.status === 'pending' || appointment.status === 'confirmed') && (
+                <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+                  <DialogTrigger asChild>
                     <Button
                       variant='destructive'
-                      onClick={handleCancelAppointment}
-                      disabled={cancelAppointmentMutation.isPending}
+                      size='sm'
+                      className='bg-gradient-to-r from-rose-500 to-red-500 hover:from-rose-600 hover:to-red-600 shadow-md hover:shadow-lg transition-all duration-200'
                     >
-                      {cancelAppointmentMutation.isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-                      Yes, Cancel
+                      Cancel Appointment
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-            <div>
-              <h2 className='text-lg font-semibold mb-4'>Appointment Information</h2>
-              <div className='space-y-4'>
-                <div className='flex'>
-                  <Calendar className='h-5 w-5 text-muted-foreground mr-3' />
-                  <div>
-                    <h3 className='font-medium'>Date</h3>
-                    <p className='text-muted-foreground'>
-                      {new Date(appointment.date).toLocaleDateString(undefined, {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                </div>
-
-                <div className='flex'>
-                  <Clock className='h-5 w-5 text-muted-foreground mr-3' />
-                  <div>
-                    <h3 className='font-medium'>Time</h3>
-                    <p className='text-muted-foreground'>{appointment.time}</p>
-                  </div>
-                </div>
-
-                <div className='flex'>
-                  <FileText className='h-5 w-5 text-muted-foreground mr-3' />
-                  <div>
-                    <h3 className='font-medium'>Reason for Visit</h3>
-                    <p className='text-muted-foreground'>{appointment.reason}</p>
-                  </div>
-                </div>
-
-                <div className='flex'>
-                  <FileText className='h-5 w-5 text-muted-foreground mr-3' />
-                  <div>
-                    <h3 className='font-medium'>Booking Reference</h3>
-                    <p className='text-muted-foreground'>#{appointment._id.substring(0, 8).toUpperCase()}</p>
-                  </div>
-                </div>
-              </div>
+                  </DialogTrigger>
+                  <DialogContent className='rounded-lg border-none shadow-2xl p-0 overflow-hidden max-w-md w-full'>
+                    <div className='bg-gradient-to-r from-rose-500 to-red-500 p-6'>
+                      <DialogTitle className='text-white text-xl'>Cancel Appointment</DialogTitle>
+                    </div>
+                    <div className='p-6'>
+                      <DialogDescription className='text-slate-600 text-base mb-6'>
+                        Are you sure you want to cancel this appointment? This action cannot be undone.
+                      </DialogDescription>
+                      <DialogFooter className='flex space-x-4'>
+                        <DialogClose asChild>
+                          <Button variant='outline' className='flex-1 border-slate-200 hover:bg-slate-50'>
+                            Keep Appointment
+                          </Button>
+                        </DialogClose>
+                        <Button
+                          variant='destructive'
+                          onClick={handleCancelAppointment}
+                          disabled={cancelAppointmentMutation.isPending}
+                          className='flex-1 bg-gradient-to-r from-rose-500 to-red-500 hover:from-rose-600 hover:to-red-600'
+                        >
+                          {cancelAppointmentMutation.isPending && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+                          Yes, Cancel
+                        </Button>
+                      </DialogFooter>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
+          </div>
 
-            {appointment.doctor && (
-              <div>
-                <h2 className='text-lg font-semibold mb-4'>Doctor Information</h2>
-                <div className='flex items-center mb-4'>
-                  <Avatar className='h-12 w-12 mr-4'>
-                    <AvatarImage src={appointment.doctor.avatar} />
-                    <AvatarFallback>{appointment.doctor.name.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className='font-medium'>Dr. {appointment.doctor.name}</h3>
-                    <p className='text-sm text-muted-foreground'>{appointment.doctor.specialization}</p>
-                  </div>
-                </div>
-
-                <div className='space-y-4'>
-                  <div className='flex'>
-                    <MapPin className='h-5 w-5 text-muted-foreground mr-3' />
+          <CardContent className='p-6 bg-white'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+              <div className='bg-white p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300'>
+                <h2 className='text-lg font-bold text-slate-800 mb-6 flex items-center'>
+                  <span className='inline-block w-2 h-6 bg-indigo-500 rounded mr-3'></span>
+                  Appointment Information
+                </h2>
+                <div className='space-y-6'>
+                  <div className='flex items-start'>
+                    <div className='bg-indigo-100 p-2 rounded-full mr-4'>
+                      <Calendar className='h-5 w-5 text-indigo-600' />
+                    </div>
                     <div>
-                      <h3 className='font-medium'>Location</h3>
-                      <p className='text-muted-foreground'>{appointment.doctor.location}</p>
+                      <h3 className='font-semibold text-slate-700'>Date</h3>
+                      <p className='text-slate-600 mt-1'>
+                        {appointment.date
+                          ? new Date(appointment.date).toLocaleDateString(undefined, {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })
+                          : 'N/A'}
+                      </p>
                     </div>
                   </div>
 
-                  <div className='flex'>
-                    <Phone className='h-5 w-5 text-muted-foreground mr-3' />
+                  <div className='flex items-start'>
+                    <div className='bg-purple-100 p-2 rounded-full mr-4'>
+                      <Clock className='h-5 w-5 text-purple-600' />
+                    </div>
                     <div>
-                      <h3 className='font-medium'>Contact</h3>
-                      <p className='text-muted-foreground'>{appointment.doctor.contact}</p>
+                      <h3 className='font-semibold text-slate-700'>Time</h3>
+                      <p className='text-slate-600 mt-1'>{appointment.time || 'N/A'}</p>
                     </div>
                   </div>
 
-                  <div className='mt-4'>
-                    <Button
-                      className='w-full'
-                      variant='outline'
-                      onClick={() => navigate(`${path.doctors}/${appointment.doctor_id}`)}
-                    >
-                      View Doctor Profile
-                    </Button>
+                  <div className='flex items-start'>
+                    <div className='bg-blue-100 p-2 rounded-full mr-4'>
+                      <FileText className='h-5 w-5 text-blue-600' />
+                    </div>
+                    <div>
+                      <h3 className='font-semibold text-slate-700'>Reason for Visit</h3>
+                      <p className='text-slate-600 mt-1'>{appointment.reason || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className='flex items-start'>
+                    <div className='bg-emerald-100 p-2 rounded-full mr-4'>
+                      <FileText className='h-5 w-5 text-emerald-600' />
+                    </div>
+                    <div>
+                      <h3 className='font-semibold text-slate-700'>Booking Reference</h3>
+                      <p className='text-slate-600 mt-1'>
+                        {appointment._id ? `#${appointment._id.substring(0, 8).toUpperCase()}` : 'N/A'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
-      {appointment.status === 'completed' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Feedback</CardTitle>
-            <CardDescription>Share your experience with this doctor</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className='mb-4'>
-              We'd love to hear about your experience with Dr. {appointment.doctor?.name}. Your feedback helps other
-              patients make informed decisions.
-            </p>
-            <Button onClick={() => navigate(`${path.doctors}/${appointment.doctor_id}/reviews`)}>Write a Review</Button>
+              {appointment.doctor && (
+                <div className='bg-gradient-to-br from-slate-50 to-indigo-50 p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300'>
+                  <h2 className='text-lg font-bold text-slate-800 mb-6 flex items-center'>
+                    <span className='inline-block w-2 h-6 bg-purple-500 rounded mr-3'></span>
+                    Doctor Information
+                  </h2>
+                  <div className='flex items-center mb-6 bg-white p-4 rounded-xl shadow-sm'>
+                    <Avatar className='h-16 w-16 mr-4 ring-2 ring-indigo-200 ring-offset-2'>
+                      <AvatarImage src={appointment.doctor.avatar} />
+                      <AvatarFallback className='bg-gradient-to-br from-indigo-500 to-purple-500 text-white'>
+                        {appointment.doctor.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className='font-bold text-slate-800'>Dr. {appointment.doctor.name}</h3>
+                      <p className='text-indigo-600 font-medium'>{appointment.doctor.specialization}</p>
+                    </div>
+                  </div>
+
+                  <div className='space-y-6'>
+                    <div className='flex items-start'>
+                      <div className='bg-rose-100 p-2 rounded-full mr-4'>
+                        <MapPin className='h-5 w-5 text-rose-600' />
+                      </div>
+                      <div>
+                        <h3 className='font-semibold text-slate-700'>Location</h3>
+                        <p className='text-slate-600 mt-1'>{appointment.doctor.location}</p>
+                      </div>
+                    </div>
+
+                    <div className='flex items-start'>
+                      <div className='bg-amber-100 p-2 rounded-full mr-4'>
+                        <Phone className='h-5 w-5 text-amber-600' />
+                      </div>
+                      <div>
+                        <h3 className='font-semibold text-slate-700'>Contact</h3>
+                        <p className='text-slate-600 mt-1'>{appointment.doctor.contact}</p>
+                      </div>
+                    </div>
+
+                    <div className='mt-6'>
+                      <Button
+                        className='w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-md hover:shadow-lg transition-all duration-200'
+                        onClick={() => navigate(`${path.doctors}/${appointment.doctor_id}`)}
+                      >
+                        View Doctor Profile
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
-      )}
+
+        {appointment.status === 'completed' && (
+          <Card className='border-none overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50'>
+            <CardHeader className='pb-2 pt-6'>
+              <CardTitle className='text-xl font-bold text-slate-800'>Share Your Experience</CardTitle>
+              <CardDescription className='text-slate-600'>Your feedback helps other patients</CardDescription>
+            </CardHeader>
+            <CardContent className='p-6'>
+              <div className='bg-white p-4 rounded-lg mb-6 border border-slate-100'>
+                <p className='text-slate-700'>
+                  We'd love to hear about your experience with Dr. {appointment.doctor?.name}. Your feedback helps other
+                  patients make informed decisions.
+                </p>
+              </div>
+              <Button
+                onClick={() => navigate(`${path.doctors}/${appointment.doctor_id}/reviews`)}
+                className='bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all duration-200'
+              >
+                <Star className='mr-2 h-4 w-4' />
+                Write a Review
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }
